@@ -1,0 +1,447 @@
+<title>Ginger Phone Probe</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --ground:#f2f4f6;
+    --panel:#ffffff;
+    --ink:#171a1f;
+    --ink-dim:#5f6773;
+    --rule:#d8dde3;
+    --accent:#1f5f8b;
+    --pass:#0f6d43;
+    --fail:#b3261e;
+    --note:#8a5a00;
+    --pend:#7a828e;
+    --stripe-pass:#0f6d43;
+    --stripe-fail:#b3261e;
+    --stripe-note:#c08a1e;
+    --stripe-pend:#b9c0c8;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#101318;
+      --panel:#181c23;
+      --ink:#e3e7ec;
+      --ink-dim:#8f98a5;
+      --rule:#2a3039;
+      --accent:#7cb3d9;
+      --pass:#4fc98a;
+      --fail:#ff8f85;
+      --note:#e0ab52;
+      --pend:#767f8c;
+      --stripe-pass:#3fae76;
+      --stripe-fail:#d9564c;
+      --stripe-note:#c08a1e;
+      --stripe-pend:#39414b;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#101318;
+    --panel:#181c23;
+    --ink:#e3e7ec;
+    --ink-dim:#8f98a5;
+    --rule:#2a3039;
+    --accent:#7cb3d9;
+    --pass:#4fc98a;
+    --fail:#ff8f85;
+    --note:#e0ab52;
+    --pend:#767f8c;
+    --stripe-pass:#3fae76;
+    --stripe-fail:#d9564c;
+    --stripe-note:#c08a1e;
+    --stripe-pend:#39414b;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:var(--ground);
+    color:var(--ink);
+    font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:16px; line-height:1.5;
+    padding:max(20px,env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom));
+  }
+  main{max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+
+  header{display:flex;flex-direction:column;gap:8px}
+  .eyebrow{
+    font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.68rem; font-weight:500; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent);
+  }
+  h1{font-size:1.5rem;font-weight:600;margin:0;letter-spacing:-.015em;text-wrap:balance}
+  .lede{margin:0;color:var(--ink-dim);font-size:.92rem;max-width:60ch}
+  .lede strong{color:var(--ink);font-weight:600}
+  code{
+    font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.85em; background:var(--panel); border:1px solid var(--rule);
+    border-radius:3px; padding:.05em .3em;
+  }
+
+  section{display:flex;flex-direction:column;gap:10px}
+  h2{
+    font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.7rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink-dim); margin:0;
+    padding-bottom:8px; border-bottom:1px solid var(--rule);
+  }
+  .sect-note{margin:0;color:var(--ink-dim);font-size:.88rem;max-width:60ch}
+
+  .checks{display:flex;flex-direction:column;gap:6px}
+  .check{
+    background:var(--panel);
+    border:1px solid var(--rule);
+    border-left:3px solid var(--stripe-pend);
+    border-radius:4px;
+    padding:11px 13px;
+    display:flex; flex-direction:column; gap:5px;
+  }
+  .check[data-state="pass"]{border-left-color:var(--stripe-pass)}
+  .check[data-state="fail"]{border-left-color:var(--stripe-fail)}
+  .check[data-state="warn"]{border-left-color:var(--stripe-note)}
+  .check .top{display:flex;align-items:baseline;gap:10px}
+  .state{
+    font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.66rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+    flex:none; width:3.6em; font-variant-numeric:tabular-nums;
+  }
+  .check[data-state="pass"] .state{color:var(--pass)}
+  .check[data-state="fail"] .state{color:var(--fail)}
+  .check[data-state="warn"] .state{color:var(--note)}
+  .check[data-state="pend"] .state{color:var(--pend)}
+  .label{font-weight:500;font-size:.94rem;flex:1;min-width:0}
+  .detail{
+    font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.78rem; line-height:1.55; color:var(--ink-dim);
+    margin-left:calc(3.6em + 10px); word-break:break-word;
+  }
+  .detail:empty{display:none}
+
+  label.filebtn{
+    display:block; width:100%;
+    background:var(--accent); color:var(--panel);
+    border-radius:5px; padding:15px;
+    font-size:.95rem; font-weight:600; text-align:center; cursor:pointer;
+  }
+  :root[data-theme="dark"] label.filebtn,
+  .darkbtn{color:#101318}
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]) label.filebtn{color:#101318}
+  }
+  label.filebtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
+
+  pre{
+    font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    background:var(--panel); border:1px solid var(--rule); border-radius:4px;
+    padding:12px; overflow-x:auto; font-size:.74rem; line-height:1.6;
+    margin:0; font-variant-numeric:tabular-nums;
+  }
+  .verdict{
+    border:1px solid var(--rule); border-left:3px solid var(--stripe-pend);
+    background:var(--panel); border-radius:4px; padding:14px;
+    font-weight:600; font-size:.95rem;
+  }
+  .verdict[data-state="pass"]{border-left-color:var(--stripe-pass)}
+  .verdict[data-state="fail"]{border-left-color:var(--stripe-fail)}
+  footer{
+    color:var(--ink-dim); font-size:.78rem; border-top:1px solid var(--rule);
+    padding-top:14px; max-width:60ch;
+  }
+</style>
+
+<main>
+  <header>
+    <span class="eyebrow">Pre-flight · Phase 0a</span>
+    <h1>Ginger Phone Probe</h1>
+    <p class="lede">Checks the six browser capabilities the single-file Ginger port depends on.
+    Run it on the phone you actually intend to use, over <strong>https</strong> — a
+    <code>file://</code> open will fail the service-worker check for reasons unrelated to your device.</p>
+  </header>
+
+  <section>
+    <h2>Automatic checks</h2>
+    <div class="checks" id="auto"></div>
+  </section>
+
+  <section>
+    <h2>Round-trip with a real card</h2>
+    <p class="sect-note">The decisive test. Pick a character card PNG — ideally one saved by
+    Ginger, so it carries a compressed <code>ginger</code> chunk. This reads the real chunks,
+    inflates the compressed one, decodes the card, and rebuilds the file.</p>
+    <label class="filebtn" for="f" tabindex="0">Choose a character card PNG</label>
+    <input type="file" id="f" accept="image/png,.png">
+    <div class="checks" id="filechecks"></div>
+    <pre id="report" hidden></pre>
+  </section>
+
+  <div class="verdict" id="verdict" hidden></div>
+
+  <footer>Nothing leaves the device. The card you pick is read in memory, never uploaded.</footer>
+</main>
+
+<script>
+const $auto = document.getElementById('auto');
+const $fc   = document.getElementById('filechecks');
+
+const WORD = {pass:'pass', fail:'fail', warn:'note', pend:'···'};
+
+function check(host, name, state, detail){
+  const id = 'chk-' + name.replace(/\W/g,'');
+  let el = document.getElementById(id);
+  if(!el){
+    el = document.createElement('div');
+    el.className = 'check';
+    el.id = id;
+    el.innerHTML = '<div class="top"><span class="state"></span><span class="label"></span></div><div class="detail"></div>';
+    host.appendChild(el);
+  }
+  el.dataset.state = state;
+  el.querySelector('.state').textContent = WORD[state] || state;
+  el.querySelector('.label').textContent = name;
+  el.querySelector('.detail').textContent = detail || '';
+  return state;
+}
+
+const results = {};
+function record(name, state, detail){ results[name] = state; return check($auto, name, state, detail); }
+
+// 1. Compression streams — the critical one
+(function(){
+  const has = typeof DecompressionStream === 'function' && typeof CompressionStream === 'function';
+  record('Compression streams', has ? 'pass' : 'fail',
+    has ? 'Native zlib present. The ginger chunk can be read and written directly.'
+        : 'MISSING — needs Safari 16.4+ or Chrome 80+. Fallback is ~8KB of inlined inflate/deflate.');
+})();
+
+// 2. IndexedDB
+(async function(){
+  record('Card library storage', 'pend', 'testing…');
+  try{
+    await new Promise((res, rej) => {
+      const rq = indexedDB.open('ginger-probe', 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore('cards', {keyPath:'id'});
+      rq.onerror = () => rej(rq.error);
+      rq.onsuccess = () => {
+        const db = rq.result;
+        const tx = db.transaction('cards','readwrite');
+        tx.objectStore('cards').put({id:'t', blob:new Uint8Array([1,2,3])});
+        tx.oncomplete = () => {
+          const tx2 = db.transaction('cards','readonly');
+          const g = tx2.objectStore('cards').get('t');
+          g.onsuccess = () => { db.close(); indexedDB.deleteDatabase('ginger-probe');
+            g.result ? res() : rej(new Error('read-back was empty')); };
+          g.onerror = () => rej(g.error);
+        };
+        tx.onerror = () => rej(tx.error);
+      };
+    });
+    record('Card library storage', 'pass', 'IndexedDB write and read-back OK. This replaces the desktop app’s file system.');
+  }catch(e){
+    record('Card library storage', 'fail', 'IndexedDB failed: ' + e.message);
+  }
+})();
+
+// 3. Persistent storage
+(async function(){
+  if(!navigator.storage || !navigator.storage.persist){
+    return record('Eviction resistance', 'warn',
+      'storage.persist() unavailable. iOS may clear the library after about 7 days idle — keep export prominent.');
+  }
+  try{
+    const granted = await navigator.storage.persist();
+    const est = navigator.storage.estimate ? await navigator.storage.estimate() : null;
+    const quota = est && est.quota ? ' Quota about ' + (est.quota/1048576).toFixed(0) + ' MB.' : '';
+    record('Eviction resistance', granted ? 'pass' : 'warn',
+      (granted ? 'Granted. The library resists automatic eviction.'
+               : 'Not granted. The library can be cleared under storage pressure; treat it as a working set, not an archive.') + quota);
+  }catch(e){ record('Eviction resistance', 'warn', e.message); }
+})();
+
+// 4. Web Share (files)
+(function(){
+  const canFiles = !!(navigator.canShare && navigator.share);
+  record('Export to other apps', canFiles ? 'pass' : 'warn',
+    canFiles ? 'Web Share available — a finished card can go straight to another app.'
+             : 'Web Share unavailable. Export falls back to a normal download. Not a blocker.');
+})();
+
+// 5. Service worker
+(function(){
+  const ok = 'serviceWorker' in navigator;
+  const secure = window.isSecureContext;
+  record('Offline and home-screen install', ok && secure ? 'pass' : ok ? 'warn' : 'fail',
+    !ok ? 'Service workers unsupported — no offline mode and no install to home screen.'
+        : secure ? 'Supported in a secure context. Full offline caching gets verified on the real deploy.'
+                 : 'Supported, but this page is not a secure context. Re-test over https.');
+})();
+
+// 6. Canvas / image encode
+(function(){
+  const c = document.createElement('canvas');
+  const ok = !!(c.getContext && c.getContext('2d') && c.toBlob);
+  record('Portrait handling', ok ? 'pass' : 'fail',
+    ok ? 'Canvas 2D and toBlob available for resizing and re-encoding portraits.' : 'Canvas unavailable.');
+})();
+
+// ---- File round-trip ----
+const CRC = (() => {
+  const t = new Uint32Array(256);
+  for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320 ^ (c>>>1) : c>>>1; t[n]=c>>>0; }
+  return buf => { let c = 0xFFFFFFFF; for(let i=0;i<buf.length;i++) c = t[(c ^ buf[i]) & 0xFF] ^ (c>>>8); return (c ^ 0xFFFFFFFF)>>>0; };
+})();
+
+async function inflate(bytes){
+  const ds = new DecompressionStream('deflate');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function deflate(bytes){
+  const cs = new CompressionStream('deflate');
+  const stream = new Blob([bytes]).stream().pipeThrough(cs);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+function parseChunks(u8){
+  const sig = [137,80,78,71,13,10,26,10];
+  for(let i=0;i<8;i++) if(u8[i] !== sig[i]) throw new Error('Not a PNG');
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const out = []; let p = 8;
+  while(p < u8.length){
+    const len = dv.getUint32(p);
+    const type = String.fromCharCode(u8[p+4],u8[p+5],u8[p+6],u8[p+7]);
+    out.push({type, len, data: u8.subarray(p+8, p+8+len), start: p});
+    p += 12 + len;
+    if(type === 'IEND') break;
+  }
+  return out;
+}
+
+function rebuild(chunks){
+  let total = 8;
+  for(const c of chunks) total += 12 + c.data.length;
+  const out = new Uint8Array(total);
+  out.set([137,80,78,71,13,10,26,10], 0);
+  const dv = new DataView(out.buffer);
+  let p = 8;
+  for(const c of chunks){
+    dv.setUint32(p, c.data.length); p += 4;
+    const typeBytes = new Uint8Array(4);
+    for(let i=0;i<4;i++) typeBytes[i] = c.type.charCodeAt(i);
+    out.set(typeBytes, p); p += 4;
+    out.set(c.data, p); p += c.data.length;
+    const crcBuf = new Uint8Array(4 + c.data.length);
+    crcBuf.set(typeBytes, 0); crcBuf.set(c.data, 4);
+    dv.setUint32(p, CRC(crcBuf)); p += 4;
+  }
+  return out;
+}
+
+const splitNul = u8 => { const i = u8.indexOf(0); return [u8.subarray(0,i), u8.subarray(i+1)]; };
+const dec = new TextDecoder();
+
+document.getElementById('f').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  $fc.innerHTML = '';
+  const lines = [];
+  const log = s => lines.push(s);
+
+  try{
+    const u8 = new Uint8Array(await file.arrayBuffer());
+    check($fc, 'Read file', 'pass', file.name + ' — ' + (u8.length/1024).toFixed(0) + ' KB into memory.');
+
+    const chunks = parseChunks(u8);
+    log('CHUNKS');
+    for(const c of chunks) log('  ' + c.type.padEnd(5) + String(c.len).padStart(9) + ' bytes');
+    check($fc, 'Parse PNG chunks', 'pass', chunks.length + ' chunks found. See the readout below.');
+
+    let charaB64 = null, gingerB64 = null, sawZtxt = false;
+    for(const c of chunks){
+      if(c.type === 'tEXt'){
+        const [k, v] = splitNul(c.data);
+        const key = dec.decode(k);
+        if(key === 'chara') charaB64 = dec.decode(v);
+        if(key === 'ccv3')  charaB64 = charaB64 || dec.decode(v);
+        if(key === 'ginger') gingerB64 = dec.decode(v);
+      } else if(c.type === 'zTXt'){
+        sawZtxt = true;
+        const [k, rest] = splitNul(c.data);
+        const key = dec.decode(k);
+        const raw = await inflate(rest.subarray(1));
+        const text = dec.decode(raw);
+        if(key === 'chara')  charaB64  = text;
+        if(key === 'ginger') gingerB64 = text;
+        log('');
+        log('zTXt "' + key + '" inflated ' + rest.length + ' → ' + raw.length + ' bytes');
+      }
+    }
+
+    check($fc, 'Inflate compressed chunk', sawZtxt ? 'pass' : 'warn',
+      sawZtxt ? 'DecompressionStream handled it. This is the make-or-break API for the whole port.'
+              : 'This card carried no compressed chunk. Try one saved by Ginger to exercise this path.');
+
+    if(charaB64){
+      const json = JSON.parse(dec.decode(Uint8Array.from(atob(charaB64), c => c.charCodeAt(0))));
+      const d = json.data || json;
+      const lore = (d.character_book && d.character_book.entries) ? d.character_book.entries.length : 0;
+      check($fc, 'Decode character card', 'pass',
+        (json.spec || 'v1') + ' · "' + (d.name || '?') + '" · ' +
+        (d.description||'').length + ' chars of description · ' + lore + ' lore entries.');
+      log(''); log('CARD  spec=' + (json.spec||'v1') + '  name=' + (d.name||'?'));
+      log('  fields: ' + Object.keys(d).join(', '));
+    } else {
+      check($fc, 'Decode character card', 'warn', 'No chara chunk — is this a character card?');
+    }
+
+    if(gingerB64){
+      const xml = dec.decode(Uint8Array.from(atob(gingerB64), c => c.charCodeAt(0)));
+      const doc = new DOMParser().parseFromString(xml, 'application/xml');
+      const err = doc.querySelector('parsererror');
+      const recipes = doc.querySelectorAll('Recipe');
+      check($fc, 'Parse embedded recipes', err ? 'fail' : 'pass',
+        err ? 'XML parse error.'
+            : (xml.length/1024).toFixed(0) + ' KB of Ginger XML, ' + recipes.length + ' recipes embedded in this card.');
+      log(''); log('GINGER XML  ' + xml.length + ' chars, ' + recipes.length + ' recipes');
+      recipes.forEach(r => log('  - ' + (r.getAttribute('id') || '?')));
+    } else {
+      check($fc, 'Parse embedded recipes', 'warn', 'No ginger chunk — this card was not saved by Ginger.');
+    }
+
+    const rebuilt = rebuild(chunks);
+    const same = rebuilt.length === u8.length;
+    const blob = new Blob([rebuilt], {type:'image/png'});
+    const bmp = await createImageBitmap(blob);
+    check($fc, 'Rebuild and re-decode', 'pass',
+      'Rebuilt ' + (rebuilt.length/1024).toFixed(0) + ' KB' +
+      (same ? ', byte-length identical' : ', length differs by ' + (rebuilt.length-u8.length)) +
+      '. Decodes as ' + bmp.width + '×' + bmp.height + '.');
+    log(''); log('ROUND-TRIP  ' + u8.length + ' → ' + rebuilt.length + ' bytes, image ' + bmp.width + 'x' + bmp.height);
+
+    const test = new TextEncoder().encode('ginger round-trip test '.repeat(50));
+    const back = await inflate(await deflate(test));
+    check($fc, 'Write compressed chunk', dec.decode(back) === dec.decode(test) ? 'pass' : 'fail',
+      'Confirms the app can write compressed chunks, not only read them.');
+
+    const failed = Object.values(results).filter(r => r === 'fail').length;
+    const v = document.getElementById('verdict');
+    v.hidden = false;
+    v.dataset.state = failed === 0 ? 'pass' : 'fail';
+    v.textContent = failed === 0
+      ? 'All critical checks passed. The single-file plan is viable on this device.'
+      : failed + ' critical check' + (failed === 1 ? '' : 's') + ' failed — resolve those before building on them.';
+
+  }catch(err){
+    check($fc, 'Round-trip', 'fail', err.message);
+    log('ERROR ' + (err.stack || err.message));
+  }
+
+  const r = document.getElementById('report');
+  r.hidden = false;
+  r.textContent = lines.join('\n');
+});
+</script>

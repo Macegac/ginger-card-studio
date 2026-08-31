@@ -1,0 +1,1506 @@
+<meta charset="utf-8">
+<title>Ginger Card Studio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ground:#edefec; --panel:#ffffff; --sunk:#e3e6e2;
+  --ink:#1a1d1a; --ink-dim:#5c635c; --ink-faint:#8b928b;
+  --rule:#d5dad4; --rule-soft:#e6e9e5;
+  --accent:#9c5518; --accent-ink:#ffffff; --accent-soft:#f2e3d6;
+  --ok:#2c6b41; --warn:#8a5a00; --danger:#a8322a;
+  --shadow:0 1px 2px rgba(26,29,26,.06),0 4px 12px rgba(26,29,26,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131614; --panel:#1c201e; --sunk:#171a18;
+    --ink:#e7eae6; --ink-dim:#98a09a; --ink-faint:#6e766f;
+    --rule:#2c322e; --rule-soft:#242926;
+    --accent:#d98b45; --accent-ink:#131614; --accent-soft:#2e2419;
+    --ok:#5fb87f; --warn:#d9a445; --danger:#e8756a;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131614; --panel:#1c201e; --sunk:#171a18;
+  --ink:#e7eae6; --ink-dim:#98a09a; --ink-faint:#6e766f;
+  --rule:#2c322e; --rule-soft:#242926;
+  --accent:#d98b45; --accent-ink:#131614; --accent-soft:#2e2419;
+  --ok:#5fb87f; --warn:#d9a445; --danger:#e8756a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:16px; line-height:1.5; overscroll-behavior-y:none;
+}
+button,input,textarea,select{font:inherit;color:inherit}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* ---------- chrome ---------- */
+.topbar{
+  position:sticky; top:0; z-index:40; background:var(--panel);
+  border-bottom:1px solid var(--rule);
+  padding:max(10px,env(safe-area-inset-top)) 12px 10px;
+  display:flex; align-items:center; gap:10px;
+}
+.topbar h1{
+  font-size:1rem; font-weight:600; margin:0; flex:1; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.iconbtn{
+  background:none; border:1px solid var(--rule); border-radius:7px;
+  padding:7px 11px; cursor:pointer; font-size:.8rem; font-weight:500;
+  white-space:nowrap; color:var(--ink-dim);
+}
+.iconbtn:active{background:var(--sunk)}
+.iconbtn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.iconbtn.sq{padding:7px 9px;font-size:.95rem;line-height:1}
+.iconbtn:disabled{opacity:.32}
+.fieldbtns{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.minibtn{
+  background:none;color:var(--ink-faint);border:1px solid var(--rule);border-radius:5px;
+  padding:4px 9px;font-size:.66rem;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;cursor:pointer;
+}
+.minibtn:active{background:var(--sunk)}
+.minibtn:disabled{opacity:.3;cursor:default}
+.minibtn.revert{color:var(--warn);border-color:var(--warn)}
+.spacer{flex:1}
+.genrow{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--rule-soft)}
+.genrow:last-of-type{border-bottom:0}
+.genrow input[type=checkbox]{width:19px;height:19px;flex:none;accent-color:var(--accent)}
+.genrow .gl{flex:1;min-width:0}
+.genrow .gn{font-size:.83rem;font-weight:600}
+.genrow .gv{font-size:.75rem;color:var(--ink-dim);display:-webkit-box;-webkit-line-clamp:2;
+            -webkit-box-orient:vertical;overflow:hidden}
+.iconbtn:focus-visible,.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.tabs{
+  position:sticky; top:0; z-index:35; display:flex; background:var(--panel);
+  border-bottom:1px solid var(--rule); overflow-x:auto; scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  background:none;border:0;border-bottom:2px solid transparent; cursor:pointer;
+  padding:11px 15px; font-size:.85rem; font-weight:500; color:var(--ink-dim);
+  white-space:nowrap;
+}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+main{padding:16px 12px calc(28px + env(safe-area-inset-bottom));max-width:720px;margin:0 auto}
+.view[hidden]{display:none}
+
+/* ---------- library ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+.cardtile{
+  background:var(--panel); border:1px solid var(--rule); border-radius:10px;
+  overflow:hidden; cursor:pointer; text-align:left; padding:0; box-shadow:var(--shadow);
+  display:flex; flex-direction:column;
+}
+.cardtile:active{transform:scale(.985)}
+.cardtile img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:var(--sunk)}
+.cardtile .meta{padding:9px 10px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.cardtile .nm{font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cardtile .sub{font-size:.68rem;color:var(--ink-faint);letter-spacing:.04em;text-transform:uppercase}
+.empty{
+  border:1px dashed var(--rule); border-radius:10px; padding:36px 20px;
+  text-align:center; color:var(--ink-dim); font-size:.9rem;
+}
+.empty p{margin:0 0 6px}
+
+/* ---------- fields ---------- */
+.field{
+  background:var(--panel); border:1px solid var(--rule); border-radius:9px;
+  padding:11px 12px; margin-bottom:10px; display:flex; flex-direction:column; gap:7px;
+}
+.field > .head{display:flex;align-items:center;gap:8px}
+.field label{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.67rem; font-weight:600;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim); flex:1;
+}
+.tok{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.65rem;
+  color:var(--ink-faint); font-variant-numeric:tabular-nums; white-space:nowrap;
+}
+.field > .head .tok{flex:none}
+.tok.wrap{white-space:normal;line-height:1.5}
+.aibtn{
+  background:var(--accent-soft); color:var(--accent); border:0; border-radius:5px;
+  padding:4px 9px; font-size:.66rem; font-weight:700; letter-spacing:.07em;
+  text-transform:uppercase; cursor:pointer;
+}
+.aibtn:disabled{opacity:.35;cursor:default}
+input[type=text],textarea,select{
+  width:100%; background:var(--sunk); border:1px solid var(--rule-soft);
+  border-radius:6px; padding:9px 10px; font-size:.92rem; resize:vertical;
+}
+textarea{min-height:76px;line-height:1.55}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+.row{display:flex;gap:10px}
+.row > *{flex:1;min-width:0}
+
+.portrait{display:flex;gap:13px;align-items:flex-start}
+.portrait img{
+  width:98px;aspect-ratio:2/3;object-fit:cover;border-radius:7px;
+  border:1px solid var(--rule);background:var(--sunk);flex:none;
+}
+.portrait .side{flex:1;display:flex;flex-direction:column;gap:7px;min-width:0}
+
+.listitem{
+  background:var(--panel);border:1px solid var(--rule);border-radius:9px;
+  padding:11px 12px;margin-bottom:9px;display:flex;flex-direction:column;gap:7px;
+}
+.listitem .bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.listitem .bar .idx{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.66rem;font-weight:600;
+  color:var(--ink-faint);letter-spacing:.08em;flex:1;text-transform:uppercase;
+  min-width:5.5em;
+}
+.listitem .bar .minibtn{padding:4px 10px;font-size:.72rem;line-height:1.1}
+.del{background:none;border:0;color:var(--danger);cursor:pointer;font-size:.7rem;font-weight:600;
+     text-transform:uppercase;letter-spacing:.06em;padding:3px 5px}
+
+details.rec{background:var(--panel);border:1px solid var(--rule);border-radius:9px;margin-bottom:8px}
+details.rec > summary{padding:11px 12px;cursor:pointer;font-weight:600;font-size:.88rem;list-style:none}
+details.rec > summary::-webkit-details-marker{display:none}
+details.rec > summary::before{content:"▸ ";color:var(--accent)}
+details.rec[open] > summary::before{content:"▾ "}
+details.rec .body{padding:0 12px 12px;border-top:1px solid var(--rule-soft);margin-top:2px;padding-top:10px}
+.kv{display:grid;grid-template-columns:minmax(90px,auto) 1fr;gap:5px 12px;font-size:.8rem}
+.kv dt{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.7rem;color:var(--ink-faint);
+       text-transform:uppercase;letter-spacing:.06em;padding-top:2px}
+.kv dd{margin:0;word-break:break-word}
+
+.note{
+  border:1px solid var(--rule); border-left:3px solid var(--warn); background:var(--panel);
+  border-radius:7px; padding:11px 12px; font-size:.83rem; color:var(--ink-dim); margin-bottom:12px;
+}
+.note b{color:var(--ink)}
+h2.sec{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.68rem; font-weight:600;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--ink-dim);
+  margin:22px 0 9px; padding-bottom:7px; border-bottom:1px solid var(--rule);
+}
+h2.sec:first-child{margin-top:0}
+
+/* ---------- sheet ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,12,10,.5);z-index:50;display:flex;align-items:flex-end}
+.scrim[hidden]{display:none}
+.sheet{
+  background:var(--ground); width:100%; max-height:88vh; overflow-y:auto;
+  border-radius:14px 14px 0 0; padding:18px 14px calc(20px + env(safe-area-inset-bottom));
+  max-width:720px; margin:0 auto; display:flex; flex-direction:column; gap:12px;
+}
+.sheet h3{margin:0;font-size:1.05rem;font-weight:600}
+.sheet .desc{margin:0;font-size:.85rem;color:var(--ink-dim)}
+.diff{display:flex;flex-direction:column;gap:9px}
+.diffbox{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:11px}
+.diffbox .cap{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.63rem;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;
+}
+.diffbox.new{border-left:3px solid var(--ok)}
+.diffbox .txt{font-size:.87rem;white-space:pre-wrap;word-break:break-word;max-height:34vh;overflow-y:auto}
+.sheetbtns{display:flex;gap:9px}
+.sheetbtns .iconbtn{flex:1;text-align:center;padding:12px}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--accent);
+      border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2s}.cardtile:active{transform:none}}
+
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom));
+  background:var(--ink);color:var(--ground);padding:11px 17px;border-radius:8px;
+  font-size:.85rem;font-weight:500;z-index:60;max-width:88vw;text-align:center;box-shadow:var(--shadow);
+}
+.toast[hidden]{display:none}
+</style>
+
+<div class="topbar">
+  <button class="iconbtn" id="back" hidden>Library</button>
+  <h1 id="title">Ginger Card Studio</h1>
+  <button class="iconbtn sq" id="undoBtn" title="Undo" aria-label="Undo" hidden disabled>↶</button>
+  <button class="iconbtn sq" id="redoBtn" title="Redo" aria-label="Redo" hidden disabled>↷</button>
+  <button class="iconbtn sq" id="settingsBtn" title="Settings" aria-label="Settings">⚙</button>
+  <button class="iconbtn" id="newBtn">+ New</button>
+  <button class="iconbtn primary" id="importBtn">Import</button>
+</div>
+<input type="file" id="fileIn" accept="image/png,.png,.json" multiple hidden>
+
+<nav class="tabs" id="tabs" hidden>
+  <button class="tab" data-tab="card"  aria-selected="true">Card</button>
+  <button class="tab" data-tab="lore"  aria-selected="false">Lorebook</button>
+  <button class="tab" data-tab="rec"   aria-selected="false">Recipes</button>
+  <button class="tab" data-tab="out"   aria-selected="false">Export</button>
+</nav>
+
+<main>
+  <section class="view" id="v-library"></section>
+  <section class="view" id="v-card"  hidden></section>
+  <section class="view" id="v-lore"  hidden></section>
+  <section class="view" id="v-rec"   hidden></section>
+  <section class="view" id="v-out"   hidden></section>
+</main>
+
+<div class="scrim" id="scrim" hidden><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+"use strict";
+
+/* ============================ utilities ============================ */
+const $ = id => document.getElementById(id);
+const el = (tag, cls, txt) => { const n = document.createElement(tag);
+  if(cls) n.className = cls; if(txt != null) n.textContent = txt; return n; };
+const esc = s => String(s == null ? '' : s);
+let toastTimer;
+function toast(msg, ms){
+  const t = $('toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, ms || 2600);
+}
+// Rough token estimate. Swapped for llama-tokenizer-js in a later phase.
+const estTokens = s => s ? Math.ceil(s.length / 3.6) : 0;
+const clone = o => JSON.parse(JSON.stringify(o));
+
+/* ============================ undo / redo ============================
+   Snapshot-based, matching the desktop app's 80-step depth. Typing is
+   coalesced so a sentence is one undo step, not forty; discrete actions
+   (clear, revert, AI accept, add/remove) commit immediately. */
+const UNDO_DEPTH = 80;
+const Hist = {
+  stack:[], i:-1, timer:null, pending:null,
+
+  reset(data){ this.stack = [clone(data)]; this.i = 0; this.pending = null;
+    clearTimeout(this.timer); this.paint(); },
+
+  /* label is shown in the toast on undo, so make it read like the action */
+  commit(label){
+    clearTimeout(this.timer); this.pending = null;
+    if(!CURRENT) return;
+    const snap = clone(CURRENT.data);
+    if(JSON.stringify(snap) === JSON.stringify(this.stack[this.i])) return;
+    this.stack.length = this.i + 1;
+    this.stack.push(snap);
+    this.labels = this.labels || {};
+    this.labels[this.stack.length - 1] = label || 'edit';
+    if(this.stack.length > UNDO_DEPTH){ this.stack.shift(); }
+    else this.i++;
+    if(this.i > this.stack.length - 1) this.i = this.stack.length - 1;
+    this.paint();
+  },
+
+  /* typing: fold rapid keystrokes into one step */
+  coalesce(label){
+    this.pending = label;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.commit(this.pending), 700);
+  },
+
+  can(dir){ return dir < 0 ? this.i > 0 : this.i < this.stack.length - 1; },
+
+  go(dir){
+    if(this.pending){ this.commit(this.pending); }        // flush a half-typed step first
+    if(!this.can(dir)) return;
+    this.i += dir;
+    CURRENT.data = clone(this.stack[this.i]);
+    this.paint();
+    queueSave();
+    if(CURRENT) $('title').textContent = CURRENT.data.name || 'Untitled';
+    selectTab(TAB);
+    toast(dir < 0 ? 'Undone' : 'Redone', 1200);
+  },
+
+  paint(){
+    const u = $('undoBtn'), r = $('redoBtn');
+    if(!u || !r) return;
+    u.disabled = !this.can(-1);
+    r.disabled = !this.can(1);
+  }
+};
+
+/* ============================ PNG chunks ============================ */
+const CRC = (() => {
+  const t = new Uint32Array(256);
+  for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320^(c>>>1) : c>>>1; t[n]=c>>>0; }
+  return b => { let c=0xFFFFFFFF; for(let i=0;i<b.length;i++) c = t[(c^b[i])&0xFF]^(c>>>8); return (c^0xFFFFFFFF)>>>0; };
+})();
+const PNG_SIG = [137,80,78,71,13,10,26,10];
+
+async function inflate(bytes){
+  const s = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+function parseChunks(u8){
+  for(let i=0;i<8;i++) if(u8[i] !== PNG_SIG[i]) throw new Error('Not a PNG file');
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const out = []; let p = 8;
+  while(p < u8.length){
+    const len = dv.getUint32(p);
+    const type = String.fromCharCode(u8[p+4],u8[p+5],u8[p+6],u8[p+7]);
+    out.push({type, data: u8.subarray(p+8, p+8+len)});
+    p += 12 + len;
+    if(type === 'IEND') break;
+  }
+  return out;
+}
+function buildPNG(chunks){
+  let total = 8;
+  for(const c of chunks) total += 12 + c.data.length;
+  const out = new Uint8Array(total); out.set(PNG_SIG, 0);
+  const dv = new DataView(out.buffer); let p = 8;
+  for(const c of chunks){
+    dv.setUint32(p, c.data.length); p += 4;
+    const tb = new Uint8Array(4);
+    for(let i=0;i<4;i++) tb[i] = c.type.charCodeAt(i);
+    out.set(tb, p); p += 4;
+    out.set(c.data, p); p += c.data.length;
+    const buf = new Uint8Array(4 + c.data.length);
+    buf.set(tb,0); buf.set(c.data,4);
+    dv.setUint32(p, CRC(buf)); p += 4;
+  }
+  return out;
+}
+const splitNul = u8 => { const i = u8.indexOf(0); return [u8.subarray(0,i), u8.subarray(i+1)]; };
+const DEC = new TextDecoder(), ENC = new TextEncoder();
+
+const b64ToStr = b64 => DEC.decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+function strToB64(s){
+  const b = ENC.encode(s); let bin = '';
+  for(let i=0;i<b.length;i+=0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, i+0x8000));
+  return btoa(bin);
+}
+function textChunk(key, value){
+  const k = ENC.encode(key), v = ENC.encode(value);
+  const d = new Uint8Array(k.length + 1 + v.length);
+  d.set(k,0); d[k.length] = 0; d.set(v, k.length+1);
+  return {type:'tEXt', data:d};
+}
+
+/* ============================ card model ============================ */
+const TEXT_FIELDS = [
+  ['description',              'Description',              true ],
+  ['personality',              'Personality',              true ],
+  ['scenario',                 'Scenario',                 true ],
+  ['first_mes',                'First message',            true ],
+  ['mes_example',              'Example messages',         true ],
+  ['system_prompt',            'System prompt',            true ],
+  ['post_history_instructions','Post-history instructions',true ],
+  ['creator_notes',            'Creator notes',            false],
+];
+
+function emptyCard(){
+  return {name:'', description:'', personality:'', scenario:'', first_mes:'', mes_example:'',
+    system_prompt:'', post_history_instructions:'', creator_notes:'', creator:'',
+    character_version:'', tags:[], alternate_greetings:[], character_book:null, extensions:{}};
+}
+
+async function readCardFile(file){
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const rec = {srcName:file.name, png:null, chunks:null, data:emptyCard(), spec:'chara_card_v2',
+               gingerXml:null, portraitBlob:null};
+
+  if(file.name.toLowerCase().endsWith('.json')){
+    const json = JSON.parse(DEC.decode(buf));
+    Object.assign(rec.data, json.data || json);
+    rec.spec = json.spec || 'chara_card_v2';
+    rec.original = clone(rec.data);
+    return rec;
+  }
+
+  const chunks = parseChunks(buf);
+  rec.png = buf; rec.chunks = chunks;
+  let charaB64 = null, ccv3B64 = null, gingerB64 = null;
+
+  for(const c of chunks){
+    if(c.type === 'tEXt' || c.type === 'zTXt'){
+      const [k, restRaw] = splitNul(c.data);
+      const key = DEC.decode(k);
+      let text;
+      if(c.type === 'zTXt') text = DEC.decode(await inflate(restRaw.subarray(1)));
+      else text = DEC.decode(restRaw);
+      if(key === 'chara')  charaB64  = text;
+      if(key === 'ccv3')   ccv3B64   = text;
+      if(key === 'ginger') gingerB64 = text;
+    }
+  }
+  const src = ccv3B64 || charaB64;
+  if(!src) throw new Error('No character data found in this PNG');
+  const json = JSON.parse(b64ToStr(src));
+  Object.assign(rec.data, json.data || json);
+  rec.spec = json.spec || 'chara_card_v2';
+  if(gingerB64) rec.gingerXml = b64ToStr(gingerB64);
+  rec.portraitBlob = new Blob([buf], {type:'image/png'});
+  rec.original = clone(rec.data);
+  return rec;
+}
+
+function cardToJSON(rec){
+  const d = rec.data;
+  const data = {
+    name:d.name||'', description:d.description||'', personality:d.personality||'',
+    scenario:d.scenario||'', first_mes:d.first_mes||'', mes_example:d.mes_example||'',
+    creator_notes:d.creator_notes||'', system_prompt:d.system_prompt||'',
+    post_history_instructions:d.post_history_instructions||'',
+    alternate_greetings:d.alternate_greetings||[], character_book:d.character_book||undefined,
+    tags:d.tags||[], creator:d.creator||'', character_version:d.character_version||'',
+    extensions:d.extensions||{}
+  };
+  return {spec:'chara_card_v2', spec_version:'2.0',
+    name:data.name, description:data.description, personality:data.personality,
+    scenario:data.scenario, first_mes:data.first_mes, mes_example:data.mes_example, data};
+}
+
+/* Rebuild the PNG: replace chara/ccv3, keep every other chunk — including ginger — untouched. */
+function exportPNG(rec){
+  if(!rec.chunks) throw new Error('This card has no source image. Add a portrait first.');
+  const payload = strToB64(JSON.stringify(cardToJSON(rec)));
+  const out = [];
+  let wroteChara = false;
+  for(const c of rec.chunks){
+    if(c.type === 'tEXt' || c.type === 'zTXt'){
+      const key = DEC.decode(splitNul(c.data)[0]);
+      if(key === 'chara'){ out.push(textChunk('chara', payload)); wroteChara = true; continue; }
+      if(key === 'ccv3'){ continue; }          // drop stale v3 copy; v2 is authoritative here
+    }
+    if(c.type === 'IEND' && !wroteChara){ out.push(textChunk('chara', payload)); wroteChara = true; }
+    out.push(c);
+  }
+  return buildPNG(out);
+}
+
+/* A card with no image cannot be exported as a PNG, so a card built from
+   scratch gets a plain placeholder immediately. Replace portrait swaps it. */
+async function placeholderPNG(){
+  const W = 512, H = 768;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#2b3230'); grad.addColorStop(1, '#171b19');
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(217,139,69,.5)'; g.lineWidth = 2;
+  g.strokeRect(18, 18, W - 36, H - 36);
+  g.fillStyle = 'rgba(217,139,69,.75)';
+  g.font = '500 26px "IBM Plex Mono", monospace';
+  g.textAlign = 'center';
+  g.fillText('NO PORTRAIT YET', W / 2, H / 2 - 6);
+  g.fillStyle = 'rgba(231,234,230,.4)';
+  g.font = '400 17px "IBM Plex Sans", sans-serif';
+  g.fillText('Tap Replace portrait', W / 2, H / 2 + 28);
+  const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+async function newCard(){
+  const rec = {srcName:'', png:null, chunks:null, data:emptyCard(),
+               spec:'chara_card_v2', gingerXml:null, portraitBlob:null, original:null};
+  const u8 = await placeholderPNG();
+  rec.png = u8; rec.chunks = parseChunks(u8);
+  rec.portraitBlob = new Blob([u8], {type:'image/png'});
+  await saveCard(rec);
+  return rec;
+}
+
+/* ============================ storage ============================ */
+const DB = {
+  h:null,
+  async open(){
+    if(this.h) return this.h;
+    this.h = await new Promise((res,rej) => {
+      const rq = indexedDB.open('ginger-studio', 1);
+      rq.onupgradeneeded = () => {
+        const db = rq.result;
+        if(!db.objectStoreNames.contains('cards')) db.createObjectStore('cards', {keyPath:'id'});
+      };
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = () => rej(rq.error);
+    });
+    return this.h;
+  },
+  async tx(mode, fn){
+    const db = await this.open();
+    return new Promise((res,rej) => {
+      const t = db.transaction('cards', mode);
+      const r = fn(t.objectStore('cards'));
+      t.oncomplete = () => res(r && r.result !== undefined ? r.result : r);
+      t.onerror = () => rej(t.error);
+    });
+  },
+  all(){ return this.tx('readonly', s => s.getAll()); },
+  get(id){ return this.tx('readonly', s => s.get(id)); },
+  put(v){ return this.tx('readwrite', s => s.put(v)); },
+  del(id){ return this.tx('readwrite', s => s.delete(id)); }
+};
+
+async function saveCard(rec){
+  if(!rec.id) rec.id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  rec.updated = Date.now();
+  await DB.put({id:rec.id, updated:rec.updated, srcName:rec.srcName, spec:rec.spec,
+    data:rec.data, original:rec.original || null, gingerXml:rec.gingerXml,
+    concept:rec.concept || '', png:rec.png ? rec.png : null});
+  return rec;
+}
+async function hydrate(row){
+  const rec = {id:row.id, updated:row.updated, srcName:row.srcName, spec:row.spec,
+    data:Object.assign(emptyCard(), row.data), original:row.original || null,
+    concept:row.concept || '', gingerXml:row.gingerXml, png:null, chunks:null, portraitBlob:null};
+  if(row.png){
+    const u8 = row.png instanceof Uint8Array ? row.png : new Uint8Array(row.png);
+    rec.png = u8;
+    try{ rec.chunks = parseChunks(u8); }catch(e){ rec.chunks = null; }
+    rec.portraitBlob = new Blob([u8], {type:'image/png'});
+  }
+  /* Cards stored before revert existed have no saved original. The stored PNG is never
+     rewritten though, so the values it shipped with are still in its chara chunk. */
+  if(!rec.original && rec.chunks){
+    try{
+      let b64 = null;
+      for(const c of rec.chunks){
+        if(c.type !== 'tEXt' && c.type !== 'zTXt') continue;
+        const [k, rest] = splitNul(c.data);
+        const key = DEC.decode(k);
+        if(key !== 'chara' && key !== 'ccv3') continue;
+        const text = c.type === 'zTXt' ? DEC.decode(await inflate(rest.subarray(1))) : DEC.decode(rest);
+        if(key === 'chara' || !b64) b64 = text;
+      }
+      if(b64){
+        const json = JSON.parse(b64ToStr(b64));
+        rec.original = Object.assign(emptyCard(), json.data || json);
+      }
+    }catch(e){ rec.original = null; }
+  }
+  return rec;
+}
+
+/* ============================ OpenRouter ============================ */
+const AI = {
+  get key(){ try{ return localStorage.getItem('or-key') || ''; }catch(e){ return ''; } },
+  set key(v){ try{ localStorage.setItem('or-key', v); }catch(e){} },
+  get model(){ try{ return localStorage.getItem('or-model') || 'anthropic/claude-sonnet-4.5'; }catch(e){ return ''; } },
+  set model(v){ try{ localStorage.setItem('or-model', v); }catch(e){} },
+  get ready(){ return !!this.key; },
+
+  async models(){
+    const r = await fetch('https://openrouter.ai/api/v1/models');
+    if(!r.ok) throw new Error('Could not load the model list (' + r.status + ')');
+    const j = await r.json();
+    return (j.data || []).map(m => m.id).sort();
+  },
+
+  async complete(system, user){
+    if(!this.key) throw new Error('No OpenRouter key set. Add one in Settings.');
+    const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method:'POST',
+      headers:{
+        'Authorization':'Bearer ' + this.key,
+        'Content-Type':'application/json',
+        'HTTP-Referer':location.origin,
+        'X-Title':'Ginger Card Studio'
+      },
+      body:JSON.stringify({model:this.model, messages:[
+        {role:'system', content:system},{role:'user', content:user}]})
+    });
+    if(r.status === 401) throw new Error('OpenRouter rejected the key. Check it in Settings.');
+    if(r.status === 402) throw new Error('OpenRouter says this key is out of credit.');
+    if(r.status === 429) throw new Error('Rate limited by OpenRouter. Wait a moment and retry.');
+    if(!r.ok){
+      let detail = '';
+      try{ const j = await r.json(); detail = (j.error && j.error.message) || ''; }catch(e){}
+      throw new Error('OpenRouter returned ' + r.status + (detail ? ': ' + detail : ''));
+    }
+    const j = await r.json();
+    const txt = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+    if(!txt) throw new Error('The model returned nothing. Try a different model.');
+    return txt.trim();
+  }
+};
+
+const AI_TASKS = {
+  rewrite:  {label:'Rewrite',  instr:'Rewrite the text so it reads better. Keep every fact, detail and the original voice. Keep roughly the same length.'},
+  expand:   {label:'Expand',   instr:'Expand the text with vivid, concrete detail consistent with what is already there. Invent nothing that contradicts it. Aim for about twice the length.'},
+  condense: {label:'Condense', instr:'Tighten the text. Cut redundancy and filler while keeping every distinct fact. Aim for about half the length.'},
+  fix:      {label:'Fix',      instr:'Correct spelling, grammar and punctuation only. Change nothing else — not the wording, not the voice, not the content.'}
+};
+
+/* Fields the "build from a concept" flow writes. Order is the review order. */
+const GEN_FIELDS = [
+  ['name',        'Name'],
+  ['description', 'Description'],
+  ['personality', 'Personality'],
+  ['scenario',    'Scenario'],
+  ['first_mes',   'First message'],
+  ['mes_example', 'Example messages'],
+  ['tags',        'Tags']
+];
+
+async function generateFromConcept(concept, existing){
+  const system =
+    'You write character cards for AI roleplay frontends such as SillyTavern. ' +
+    'These are creative fiction and may involve mature or explicit themes; treat them as fiction and write them fully. ' +
+    'Reply with ONE JSON object and nothing else — no prose, no markdown fences.\n\n' +
+    'Keys, all strings except tags:\n' +
+    '  name         — the character\'s name, nothing else\n' +
+    '  description  — who they are: appearance, background, situation. The longest field.\n' +
+    '  personality  — traits, manner, voice. A few sentences or a comma list.\n' +
+    '  scenario     — the situation the roleplay opens in.\n' +
+    '  first_mes    — the character\'s opening message, in their voice. Use *asterisks* for actions.\n' +
+    '  mes_example  — 2-3 exchanges showing their voice. Format each block as:\n' +
+    '                 <START>\\n{{user}}: ...\\n{{char}}: ...\n' +
+    '  tags         — array of 3-6 short lowercase strings\n\n' +
+    'Write {{char}} for the character and {{user}} for the human. Never invent a name for {{user}}.';
+  const user =
+    'Character concept:\n---\n' + concept + '\n---\n' +
+    (existing ? '\nAlready written, keep consistent with it and do not contradict it:\n---\n' + existing + '\n---' : '');
+
+  const raw = await AI.complete(system, user);
+  let txt = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const a = txt.indexOf('{'), b = txt.lastIndexOf('}');
+  if(a === -1 || b <= a) throw new Error('The model did not return JSON. Try again, or pick a different model.');
+  let obj;
+  try{ obj = JSON.parse(txt.slice(a, b+1)); }
+  catch(e){ throw new Error('The model returned malformed JSON. Try again, or pick a different model.'); }
+
+  const out = {};
+  for(const [k] of GEN_FIELDS){
+    let v = obj[k];
+    if(k === 'tags'){
+      if(Array.isArray(v)) v = v.map(String).map(s => s.trim()).filter(Boolean);
+      else if(typeof v === 'string') v = v.split(',').map(s => s.trim()).filter(Boolean);
+      else v = null;
+      if(v && v.length) out[k] = v;
+    } else if(typeof v === 'string' && v.trim()){
+      out[k] = v.trim();
+    }
+  }
+  if(!Object.keys(out).length) throw new Error('The model returned no usable fields. Try again.');
+  return out;
+}
+
+function conceptSheet(){
+  const rec = CURRENT;
+  openSheet(sh => {
+    sh.appendChild(el('h3', null, 'Build from a concept'));
+    sh.appendChild(el('p','desc',
+      'Describe the character in a sentence or a page. The model drafts the card fields; ' +
+      'you pick which ones to keep.'));
+
+    const f = el('div','field');
+    f.appendChild(el('label', null, 'Concept'));
+    const ta = el('textarea');
+    ta.rows = 5; ta.spellcheck = true;
+    ta.placeholder = 'A retired dwarven blacksmith who runs a failing tavern on the edge of a frontier town. Gruff, secretly sentimental, brews terrible ale and will not hear a word against it.';
+    ta.value = rec.concept || '';
+    f.appendChild(ta);
+    sh.appendChild(f);
+
+    const filled = GEN_FIELDS.filter(([k]) => {
+      const v = rec.data[k];
+      return Array.isArray(v) ? v.length : !!v;
+    }).length;
+    if(filled){
+      const w = el('div','note');
+      w.innerHTML = '<b>' + filled + ' fields already have content.</b> ' +
+        'They are sent as context so the draft stays consistent, and nothing is overwritten ' +
+        'until you tick it in the review step.';
+      sh.appendChild(w);
+    }
+
+    const btns = el('div','sheetbtns');
+    const cancel = el('button','iconbtn','Cancel'); cancel.onclick = closeSheet;
+    const go = el('button','iconbtn primary','Generate');
+    go.onclick = async () => {
+      const concept = ta.value.trim();
+      if(!concept){ toast('Describe the character first'); return; }
+      rec.concept = concept;
+      go.disabled = true; cancel.disabled = true;
+      go.innerHTML = '<span class="spin"></span> Writing…';
+      try{
+        const existing = aiContext(rec);
+        const draft = await generateFromConcept(concept, existing);
+        closeSheet();
+        reviewSheet(draft);
+      }catch(e){
+        go.disabled = false; cancel.disabled = false; go.textContent = 'Generate';
+        const err = el('div','note'); err.style.borderLeftColor = 'var(--danger)';
+        err.textContent = e.message;
+        sh.insertBefore(err, btns);
+      }
+    };
+    btns.appendChild(cancel); btns.appendChild(go);
+    sh.appendChild(btns);
+  });
+}
+
+function reviewSheet(draft){
+  const rec = CURRENT;
+  openSheet(sh => {
+    sh.appendChild(el('h3', null, 'Review the draft'));
+    sh.appendChild(el('p','desc','Ticked fields get written to the card. Everything else is left alone.'));
+
+    const boxes = {};
+    const list = el('div','field');
+    for(const [k, lbl] of GEN_FIELDS){
+      if(!(k in draft)) continue;
+      const cur = rec.data[k];
+      const hasCur = Array.isArray(cur) ? cur.length : !!cur;
+      const row = el('div','genrow');
+      const cb = el('input'); cb.type = 'checkbox'; cb.checked = !hasCur;   // default: fill blanks, keep your work
+      boxes[k] = cb;
+      row.appendChild(cb);
+      const gl = el('div','gl');
+      gl.appendChild(el('div','gn', lbl + (hasCur ? ' — replaces what is there' : '')));
+      const val = Array.isArray(draft[k]) ? draft[k].join(', ') : draft[k];
+      gl.appendChild(el('div','gv', val));
+      row.appendChild(gl);
+      row.onclick = e => { if(e.target !== cb){ cb.checked = !cb.checked; } };
+      list.appendChild(row);
+    }
+    sh.appendChild(list);
+
+    const btns = el('div','sheetbtns');
+    const no = el('button','iconbtn','Discard'); no.onclick = closeSheet;
+    const yes = el('button','iconbtn primary','Apply selected');
+    yes.onclick = () => {
+      let n = 0;
+      for(const [k] of GEN_FIELDS){
+        if(boxes[k] && boxes[k].checked){ rec.data[k] = draft[k]; n++; }
+      }
+      if(!n){ toast('Nothing selected'); return; }
+      Hist.commit('generate from concept');
+      queueSave(); closeSheet();
+      $('title').textContent = rec.data.name || 'Untitled';
+      selectTab('card');
+      toast('Wrote ' + n + ' field' + (n === 1 ? '' : 's') + ' — undo with ↶', 3200);
+    };
+    btns.appendChild(no); btns.appendChild(yes);
+    sh.appendChild(btns);
+  });
+}
+
+function aiContext(rec){
+  const d = rec.data, parts = [];
+  if(d.name) parts.push('Character name: ' + d.name);
+  for(const [k, lbl] of TEXT_FIELDS){
+    if(k === 'creator_notes') continue;
+    const v = d[k];
+    if(v && v.length < 900) parts.push(lbl + ': ' + v);
+  }
+  return parts.join('\n\n');
+}
+
+async function runAI(rec, fieldKey, fieldLabel, task, current){
+  const t = AI_TASKS[task];
+  const system =
+    'You are editing one field of a character card used with AI roleplay models. ' +
+    'These cards are creative fiction and may contain mature or explicit themes; treat them as fiction. ' +
+    'Return ONLY the new text for the field. No preamble, no commentary, no quotes around it, no markdown fences.';
+  const user =
+    'Other fields on this card, for context only — do not rewrite these:\n---\n' +
+    (aiContext(rec) || '(none)') +
+    '\n---\n\nField being edited: ' + fieldLabel +
+    '\n\nTask: ' + t.instr +
+    '\n\nCurrent text:\n---\n' + current + '\n---';
+  return AI.complete(system, user);
+}
+
+/* ============================ views ============================ */
+let CURRENT = null;      // open card record
+let TAB = 'card';
+
+function setView(name){
+  for(const v of ['library','card','lore','rec','out']) $('v-' + v).hidden = (v !== name);
+}
+function showLibrary(){
+  CURRENT = null; TAB = 'card';
+  $('tabs').hidden = true; $('back').hidden = true;
+  $('undoBtn').hidden = true; $('redoBtn').hidden = true;
+  $('newBtn').hidden = false; $('importBtn').hidden = false;
+  $('title').textContent = 'Ginger Card Studio';
+  setView('library'); renderLibrary();
+}
+function showCard(rec){
+  CURRENT = rec;
+  $('tabs').hidden = false; $('back').hidden = false;
+  $('undoBtn').hidden = false; $('redoBtn').hidden = false;
+  $('newBtn').hidden = true; $('importBtn').hidden = true;
+  $('title').textContent = rec.data.name || rec.srcName || 'Untitled';
+  Hist.reset(rec.data);
+  selectTab('card');
+}
+function selectTab(name){
+  TAB = name;
+  for(const b of document.querySelectorAll('.tab'))
+    b.setAttribute('aria-selected', String(b.dataset.tab === name));
+  setView(name);
+  if(name === 'card') renderCard();
+  if(name === 'lore') renderLore();
+  if(name === 'rec')  renderRecipes();
+  if(name === 'out')  renderExport();
+}
+
+async function renderLibrary(){
+  const host = $('v-library'); host.innerHTML = '';
+  let rows = [];
+  try{ rows = await DB.all(); }
+  catch(e){ host.appendChild(el('div','note','Could not open the card library: ' + e.message)); return; }
+  rows.sort((a,b) => (b.updated||0) - (a.updated||0));
+
+  if(!rows.length){
+    const e0 = el('div','empty');
+    e0.appendChild(el('p', null, 'No cards yet.'));
+    e0.appendChild(el('p', null, 'Tap Import to add a character card PNG or JSON.'));
+    host.appendChild(e0);
+    return;
+  }
+  const grid = el('div','grid');
+  for(const row of rows){
+    const tile = el('button','cardtile');
+    const img = el('img'); img.alt = '';
+    if(row.png){
+      const u8 = row.png instanceof Uint8Array ? row.png : new Uint8Array(row.png);
+      img.src = URL.createObjectURL(new Blob([u8], {type:'image/png'}));
+    }
+    tile.appendChild(img);
+    const meta = el('div','meta');
+    meta.appendChild(el('div','nm', row.data && row.data.name ? row.data.name : '(unnamed)'));
+    const bits = [];
+    if(row.gingerXml){
+      const n = (row.gingerXml.match(/<Recipe /g) || []).length;
+      bits.push(n ? n + ' recipes' : 'ginger');
+    }
+    const lore = row.data && row.data.character_book && row.data.character_book.entries;
+    if(lore && lore.length) bits.push(lore.length + ' lore');
+    meta.appendChild(el('div','sub', bits.join(' · ') || 'card'));
+    tile.appendChild(meta);
+    tile.onclick = async () => { const full = await DB.get(row.id); showCard(await hydrate(full)); };
+    grid.appendChild(tile);
+  }
+  host.appendChild(grid);
+}
+
+function fieldBox(labelText, key, multiline, opts){
+  opts = opts || {};
+  const rec = CURRENT, d = rec.data;
+  const box = el('div','field');
+  const head = el('div','head');
+  head.appendChild(el('label', null, labelText));
+  const tok = el('span','tok'); head.appendChild(tok);
+  box.appendChild(head);
+
+  const input = multiline ? el('textarea') : el('input');
+  if(!multiline) input.type = 'text';
+  input.value = esc(d[key]);
+  if(opts.rows) input.rows = opts.rows;
+  input.spellcheck = true;
+
+  const orig = rec.original ? rec.original[key] : undefined;
+  const hasOrig = typeof orig === 'string';
+
+  const sync = () => {
+    tok.textContent = multiline ? '~' + estTokens(input.value) + ' tok' : '';
+    if(clearBtn) clearBtn.disabled = !input.value;
+    if(revertBtn) revertBtn.disabled = (input.value === orig);
+  };
+  const setValue = (v, label) => {
+    input.value = v; d[key] = v; sync(); Hist.commit(label); queueSave();
+  };
+
+  input.oninput = () => { d[key] = input.value; sync(); Hist.coalesce('edit ' + labelText.toLowerCase()); queueSave(); };
+  input.onblur = () => { if(Hist.pending) Hist.commit(Hist.pending); };
+  box.appendChild(input);
+
+  const bar = el('div','fieldbtns');
+  let clearBtn = null, revertBtn = null;
+
+  if(multiline && opts.ai !== false){
+    for(const t of Object.keys(AI_TASKS)){
+      const b = el('button','aibtn', AI_TASKS[t].label);
+      b.disabled = !AI.ready;
+      b.title = AI.ready ? '' : 'Add an OpenRouter key in Settings';
+      b.onclick = () => aiSheet(key, labelText, t, input, tok, sync);
+      bar.appendChild(b);
+    }
+  }
+  bar.appendChild(el('span','spacer'));
+
+  if(hasOrig){
+    revertBtn = el('button','minibtn revert','Revert');
+    revertBtn.title = 'Put back what the imported card had in this field';
+    revertBtn.onclick = () => { setValue(orig, 'revert ' + labelText.toLowerCase());
+      toast(orig ? 'Reverted to the imported value' : 'Reverted — the card had this field empty'); };
+    bar.appendChild(revertBtn);
+  }
+  clearBtn = el('button','minibtn','Clear');
+  clearBtn.onclick = () => { setValue('', 'clear ' + labelText.toLowerCase()); toast('Cleared — undo with ↶'); };
+  bar.appendChild(clearBtn);
+
+  box.appendChild(bar);
+  sync();
+  return box;
+}
+
+function renderCard(){
+  const host = $('v-card'); host.innerHTML = '';
+  const rec = CURRENT, d = rec.data;
+
+  // portrait + identity
+  const pf = el('div','field');
+  const pr = el('div','portrait');
+  const img = el('img'); img.alt = '';
+  if(rec.portraitBlob) img.src = URL.createObjectURL(rec.portraitBlob);
+  pr.appendChild(img);
+  const side = el('div','side');
+  const nameIn = el('input'); nameIn.type = 'text'; nameIn.placeholder = 'Character name';
+  nameIn.value = esc(d.name);
+  nameIn.oninput = () => { d.name = nameIn.value; $('title').textContent = d.name || 'Untitled'; Hist.coalesce('edit name'); queueSave(); };
+  nameIn.onblur = () => { if(Hist.pending) Hist.commit(Hist.pending); };
+  side.appendChild(el('label', null, 'Name'));
+  side.appendChild(nameIn);
+  const swap = el('button','iconbtn','Replace portrait');
+  swap.onclick = () => pickPortrait(img);
+  side.appendChild(swap);
+  pr.appendChild(side);
+  pf.appendChild(pr);
+  host.appendChild(pf);
+
+  // meta row
+  const mf = el('div','field');
+  mf.appendChild(el('label', null, 'Creator / version / tags'));
+  const row = el('div','row');
+  const cr = el('input'); cr.type='text'; cr.placeholder='Creator'; cr.value = esc(d.creator);
+  cr.oninput = () => { d.creator = cr.value; Hist.coalesce('edit creator'); queueSave(); };
+  const vr = el('input'); vr.type='text'; vr.placeholder='Version'; vr.value = esc(d.character_version);
+  vr.oninput = () => { d.character_version = vr.value; Hist.coalesce('edit version'); queueSave(); };
+  row.appendChild(cr); row.appendChild(vr);
+  mf.appendChild(row);
+  const tg = el('input'); tg.type='text'; tg.placeholder='Tags, comma separated';
+  tg.value = (d.tags||[]).join(', ');
+  tg.oninput = () => { d.tags = tg.value.split(',').map(s=>s.trim()).filter(Boolean); Hist.coalesce('edit tags'); queueSave(); };
+  mf.appendChild(tg);
+  host.appendChild(mf);
+
+  if(rec.gingerXml){
+    const n = (rec.gingerXml.match(/<Recipe /g) || []).length;
+    const w = el('div','note');
+    w.innerHTML = '<b>This card is recipe-driven.</b> ' + n + ' recipes generated the text below. ' +
+      'Editing it here works, but re-generating in Ginger will overwrite your changes. ' +
+      'The recipe data is preserved untouched on export.';
+    host.appendChild(w);
+  }
+
+  const gen = el('button','iconbtn primary','✦  Build from a concept');
+  gen.style.width = '100%'; gen.style.padding = '13px'; gen.style.marginBottom = '4px';
+  gen.disabled = !AI.ready;
+  gen.title = AI.ready ? '' : 'Add an OpenRouter key in Settings';
+  gen.onclick = conceptSheet;
+  host.appendChild(gen);
+  if(!AI.ready){
+    const h = el('div','tok wrap');
+    h.style.margin = '0 0 8px'; h.textContent = 'Add an OpenRouter key in Settings to turn on the AI features.';
+    host.appendChild(h);
+  }
+
+  host.appendChild(el('h2','sec','Card text'));
+  for(const [k, lbl, multi] of TEXT_FIELDS) host.appendChild(fieldBox(lbl, k, multi));
+
+  // alternate greetings
+  const greets = (d.alternate_greetings = d.alternate_greetings || []);
+  host.appendChild(el('h2','sec','Alternate greetings'));
+  if(greets.length > 1){
+    const h = el('div','tok wrap');
+    h.style.margin = '-4px 0 8px';
+    h.textContent = 'Slot order is the order chat frontends offer them in. Use ↑ ↓ to reorder, or Top to move one straight to slot 1.';
+    host.appendChild(h);
+  }
+
+  const move = (from, to) => {
+    if(to < 0 || to >= greets.length || from === to) return;
+    if(Hist.pending) Hist.commit(Hist.pending);
+    greets.splice(to, 0, greets.splice(from, 1)[0]);
+    Hist.commit('reorder greetings');
+    queueSave(); renderCard();
+    const rows = document.querySelectorAll('#v-card .listitem');
+    if(rows[to]) rows[to].scrollIntoView({block:'nearest'});
+    toast('Moved to slot ' + (to + 1), 1400);
+  };
+
+  greets.forEach((g, i) => {
+    const it = el('div','listitem');
+    const bar = el('div','bar');
+    bar.appendChild(el('span','idx','Slot ' + (i+1) + ' of ' + greets.length));
+
+    if(greets.length > 1){
+      const up = el('button','minibtn','↑');
+      up.title = 'Move up a slot'; up.setAttribute('aria-label','Move greeting ' + (i+1) + ' up');
+      up.disabled = i === 0;
+      up.onclick = () => move(i, i - 1);
+
+      const down = el('button','minibtn','↓');
+      down.title = 'Move down a slot'; down.setAttribute('aria-label','Move greeting ' + (i+1) + ' down');
+      down.disabled = i === greets.length - 1;
+      down.onclick = () => move(i, i + 1);
+
+      const top = el('button','minibtn','Top');
+      top.title = 'Move to slot 1'; top.disabled = i === 0;
+      top.onclick = () => move(i, 0);
+
+      bar.appendChild(up); bar.appendChild(down); bar.appendChild(top);
+    }
+
+    const del = el('button','del','Remove');
+    del.onclick = () => { greets.splice(i,1); Hist.commit('remove greeting'); queueSave(); renderCard(); };
+    bar.appendChild(del);
+    it.appendChild(bar);
+    const ta = el('textarea'); ta.value = esc(g); ta.spellcheck = true;
+    ta.oninput = () => { greets[i] = ta.value; Hist.coalesce('edit greeting'); queueSave(); };
+    ta.onblur = () => { if(Hist.pending) Hist.commit(Hist.pending); };
+    it.appendChild(ta);
+    host.appendChild(it);
+  });
+  const addG = el('button','iconbtn','+ Add greeting');
+  addG.onclick = () => { (d.alternate_greetings = d.alternate_greetings || []).push(''); Hist.commit('add greeting'); queueSave(); renderCard(); };
+  host.appendChild(addG);
+}
+
+function pickPortrait(imgEl){
+  const inp = el('input'); inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if(!f) return;
+    try{
+      const bmp = await createImageBitmap(f);
+      const W = 512, H = Math.round(W * bmp.height / bmp.width);
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      cv.getContext('2d').drawImage(bmp, 0, 0, W, H);
+      const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+      const u8 = new Uint8Array(await blob.arrayBuffer());
+      CURRENT.png = u8; CURRENT.chunks = parseChunks(u8);
+      CURRENT.portraitBlob = new Blob([u8], {type:'image/png'});
+      imgEl.src = URL.createObjectURL(CURRENT.portraitBlob);
+      if(CURRENT.gingerXml){
+        toast('Portrait replaced. Recipe data was on the old image and is now gone.', 4200);
+        CURRENT.gingerXml = null;
+      } else toast('Portrait replaced');
+      queueSave();
+    }catch(e){ toast('Could not read that image: ' + e.message, 4000); }
+  };
+  inp.click();
+}
+
+function renderLore(){
+  const host = $('v-lore'); host.innerHTML = '';
+  const d = CURRENT.data;
+  if(!d.character_book) d.character_book = {name:'', entries:[]};
+  const book = d.character_book;
+  book.entries = book.entries || [];
+
+  const add = el('button','iconbtn primary','+ Add entry');
+  add.onclick = () => {
+    book.entries.push({keys:[], content:'', enabled:true, insertion_order:100});
+    Hist.commit('add lore entry'); queueSave(); renderLore();
+  };
+  host.appendChild(add);
+  host.appendChild(el('h2','sec', book.entries.length + ' ' + (book.entries.length === 1 ? 'entry' : 'entries')));
+
+  if(!book.entries.length){
+    host.appendChild(el('div','empty','No lorebook entries on this card.'));
+    return;
+  }
+  book.entries.forEach((e, i) => {
+    const it = el('div','listitem');
+    const bar = el('div','bar');
+    bar.appendChild(el('span','idx','Entry ' + (i+1)));
+    const del = el('button','del','Remove');
+    del.onclick = () => { book.entries.splice(i,1); Hist.commit('remove lore entry'); queueSave(); renderLore(); };
+    bar.appendChild(del);
+    it.appendChild(bar);
+
+    const kIn = el('input'); kIn.type='text'; kIn.placeholder='Trigger keys, comma separated';
+    kIn.value = (e.keys || e.key || []).join(', ');
+    kIn.oninput = () => { e.keys = kIn.value.split(',').map(s=>s.trim()).filter(Boolean); Hist.coalesce('edit lore keys'); queueSave(); };
+    it.appendChild(kIn);
+
+    const cIn = el('textarea'); cIn.value = esc(e.content); cIn.spellcheck = true;
+    cIn.placeholder = 'What the model should know when a key matches';
+    cIn.oninput = () => { e.content = cIn.value; Hist.coalesce('edit lore entry'); queueSave(); };
+    cIn.onblur = () => { if(Hist.pending) Hist.commit(Hist.pending); };
+    it.appendChild(cIn);
+    host.appendChild(it);
+  });
+}
+
+function renderRecipes(){
+  const host = $('v-rec'); host.innerHTML = '';
+  const xml = CURRENT.gingerXml;
+  if(!xml){
+    host.appendChild(el('div','empty','This card carries no Ginger recipe data.'));
+    return;
+  }
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  if(doc.querySelector('parsererror')){
+    host.appendChild(el('div','note','The recipe data on this card could not be parsed.'));
+    return;
+  }
+  const txtOf = (node, tag) => { const c = node.querySelector(':scope > ' + tag); return c ? c.textContent.trim() : ''; };
+  const PARAM_TAGS = /^(Text|Number|Choice|Toggle|Multiple|List|Slider|Measurement)$/;
+
+  /* A Ginger card stores recipes twice: the top-level <Recipes> holds the DEFINITIONS
+     (labels, option lists), while <Character><Recipes> holds the INSTANCES — the actual
+     values the user typed, as <Parameter id="...">value</Parameter>. Join the two. */
+  const defs = new Map();          // recipe id -> {name, labels: Map(paramId -> label), opts: Map(paramId -> Map(optId -> text))}
+  const defRoot = doc.querySelector(':scope > Recipes');
+  for(const r of (defRoot ? Array.from(defRoot.children) : [])){
+    const id = r.getAttribute('id'); if(!id || defs.has(id)) continue;
+    const labels = new Map(), opts = new Map();
+    for(const p of Array.from(r.children)){
+      if(!PARAM_TAGS.test(p.tagName)) continue;
+      const pid = p.getAttribute('id'); if(!pid) continue;
+      labels.set(pid, txtOf(p,'Label') || pid);
+      const os = p.querySelectorAll(':scope > Option');
+      if(os.length){
+        const m = new Map();
+        os.forEach(o => m.set(o.getAttribute('id'), o.textContent.trim()));
+        opts.set(pid, m);
+      }
+    }
+    defs.set(id, {name: txtOf(r,'Title') || txtOf(r,'Name') || id,
+                  category: txtOf(r,'Category'), labels, opts});
+  }
+
+  /* Instances are <Instance id="..." active="..."> under Character > Recipes. */
+  let shown = Array.from(doc.querySelectorAll('Character > Recipes > Instance'));
+  const fromInstances = shown.length > 0;
+  if(!fromInstances && defRoot) shown = Array.from(defRoot.children);
+
+  const n = el('div','note');
+  n.innerHTML = '<b>Read-only.</b> These are the recipes and the values stored on this card. ' +
+    'Editing them and re-generating the card text needs the Ginger engine, which lands in a later phase. ' +
+    'Everything here survives export untouched.';
+  host.appendChild(n);
+
+  const withValues = shown.filter(r => r.querySelector(':scope > Parameter')).length;
+  host.appendChild(el('h2','sec',
+    shown.length + ' recipes' + (fromInstances ? ' · ' + withValues + ' with values' : '')));
+
+  for(const r of shown){
+    const id = r.getAttribute('id') || '';
+    const def = defs.get(id);
+    const params = Array.from(r.querySelectorAll(':scope > Parameter'));
+    const inactive = r.getAttribute('active') === 'false';
+
+    const d = el('details','rec');
+    let label = (def && def.name) || txtOf(r,'Title') || txtOf(r,'Name') || id || 'Recipe';
+    if(id.startsWith('__')) label = label + ' (component)';
+    if(inactive) label = label + ' — off';
+    d.appendChild(el('summary', null, label + (params.length ? '  · ' + params.length : '')));
+
+    const body = el('div','body');
+    const dl = el('dl','kv');
+    if(id){ dl.appendChild(el('dt',null,'id')); dl.appendChild(el('dd',null,id)); }
+    if(def && def.category){ dl.appendChild(el('dt',null,'category')); dl.appendChild(el('dd',null,def.category)); }
+
+    if(params.length){
+      for(const p of params){
+        const pid = p.getAttribute('id') || '';
+        let val = p.textContent.trim();
+        if(def && def.opts.has(pid) && def.opts.get(pid).has(val)) val = def.opts.get(pid).get(val);
+        dl.appendChild(el('dt', null, (def && def.labels.get(pid)) || pid));
+        dl.appendChild(el('dd', null, val || '—'));
+      }
+    } else {
+      dl.appendChild(el('dt',null,'values'));
+      dl.appendChild(el('dd',null,'this recipe takes no input'));
+    }
+    body.appendChild(dl);
+    d.appendChild(body);
+    host.appendChild(d);
+  }
+}
+
+function renderExport(){
+  const host = $('v-out'); host.innerHTML = '';
+  const rec = CURRENT;
+
+  const stats = el('div','field');
+  stats.appendChild(el('label', null, 'Estimated size'));
+  const dl = el('dl','kv');
+  let total = 0;
+  for(const [k, lbl] of TEXT_FIELDS){ const t = estTokens(rec.data[k]); if(!t) continue; total += t;
+    dl.appendChild(el('dt',null,lbl)); dl.appendChild(el('dd',null,'~' + t + ' tokens')); }
+  dl.appendChild(el('dt',null,'total')); dl.appendChild(el('dd',null,'~' + total + ' tokens'));
+  stats.appendChild(dl);
+  stats.appendChild(el('div','tok wrap','Rough estimate. Exact llama token counts arrive with the engine.'));
+  host.appendChild(stats);
+
+  host.appendChild(el('h2','sec','Export'));
+
+  const mkBtn = (label, fn) => { const b = el('button','iconbtn', label);
+    b.style.width='100%'; b.style.marginBottom='9px'; b.style.padding='13px'; b.onclick = fn; return b; };
+
+  host.appendChild(mkBtn('Share PNG (character card)', () => doExport('png','share')));
+  host.appendChild(mkBtn('Save PNG (character card)', () => doExport('png','save')));
+  host.appendChild(mkBtn('Save JSON (Character Card V2)', () => doExport('json','save')));
+
+  const nn = el('div','note');
+  nn.innerHTML = rec.gingerXml
+    ? '<b>Recipe data preserved.</b> The exported PNG keeps this card’s Ginger chunk byte-for-byte, so it still opens as a full recipe card in the desktop app.'
+    : 'Exports as a standard Character Card V2 PNG, readable by SillyTavern and most frontends.';
+  host.appendChild(nn);
+
+  host.appendChild(el('h2','sec','Danger zone'));
+  const del = mkBtn('Delete this card from the library', async () => {
+    if(!confirm('Delete "' + (rec.data.name || 'this card') + '" from the library? Export it first if you want to keep it.')) return;
+    await DB.del(rec.id); toast('Card deleted'); showLibrary();
+  });
+  del.style.color = 'var(--danger)'; del.style.borderColor = 'var(--danger)';
+  host.appendChild(del);
+}
+
+/* Saving works in two homes: on GitHub Pages / a local file, an <a download> is
+   correct. Inside the claude.ai artifact viewer, pages cannot download at all —
+   the host mediates it through the downloads capability. Try that first, fall back. */
+let DL = undefined;
+async function downloadsAPI(){
+  if(DL !== undefined) return DL;
+  try{ DL = (window.claude && claude.use) ? await claude.use('downloads') : null; }
+  catch(e){ DL = null; }
+  return DL;
+}
+const DL_MSG = {
+  declined:      null,                                     // viewer said no; stay quiet
+  too_large:     'That card is over the 16 MB save limit.',
+  rate_limited:  'A save prompt is already open. Try again in a moment.',
+  unavailable:   'Saving is not available in this view. Open the app on your own site to export.',
+  bad_request:   'Could not prepare that file.'
+};
+
+async function doExport(kind, how){
+  const rec = CURRENT;
+  const safe = (rec.data.name || 'character').replace(/[^\w\- ]+/g,'').trim() || 'character';
+  let blob, filename;
+  try{
+    if(kind === 'json'){
+      blob = new Blob([JSON.stringify(cardToJSON(rec), null, 2)], {type:'application/json'});
+      filename = safe + '.json';
+    }else{
+      blob = new Blob([exportPNG(rec)], {type:'image/png'});
+      filename = safe + '.png';
+    }
+  }catch(e){ toast('Export failed: ' + e.message, 4200); return; }
+
+  if(how === 'share'){
+    const file = new File([blob], filename, {type:blob.type});
+    try{
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        await navigator.share({files:[file], title:rec.data.name || 'Character card'});
+        return;
+      }
+    }catch(e){ if(e && e.name === 'AbortError') return; }
+    toast('Sharing is not available here — use Save instead.', 3600);
+    return;
+  }
+
+  const dl = await downloadsAPI();
+  if(dl){
+    try{
+      await dl.save({filename, data:blob});
+      toast('Saved ' + filename);
+    }catch(e){
+      const m = DL_MSG.hasOwnProperty(e && e.code) ? DL_MSG[e.code]
+              : ('Save failed: ' + ((e && e.message) || 'unknown error'));
+      if(m) toast(m, 4200);
+    }
+    return;
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = el('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast('Saved ' + filename);
+}
+
+/* ============================ sheets ============================ */
+function openSheet(build){
+  const sh = $('sheet'); sh.innerHTML = ''; build(sh);
+  $('scrim').hidden = false;
+}
+function closeSheet(){ $('scrim').hidden = true; }
+$('scrim').onclick = e => { if(e.target === $('scrim')) closeSheet(); };
+
+function aiSheet(key, label, task, input, tok, sync){
+  const rec = CURRENT, before = input.value;
+  if(!before.trim()){ toast('Nothing to work with — write something first.'); return; }
+
+  openSheet(sh => {
+    sh.appendChild(el('h3', null, AI_TASKS[task].label + ' · ' + label));
+    const status = el('p','desc');
+    status.innerHTML = '<span class="spin"></span> Asking ' + AI.model + '…';
+    sh.appendChild(status);
+
+    const diff = el('div','diff');
+    const b1 = el('div','diffbox');
+    b1.appendChild(el('div','cap','Current'));
+    b1.appendChild(el('div','txt', before));
+    diff.appendChild(b1);
+    sh.appendChild(diff);
+
+    runAI(rec, key, label, task, before).then(after => {
+      status.textContent = 'Review the proposed text. Nothing changes until you accept it.';
+      const b2 = el('div','diffbox new');
+      b2.appendChild(el('div','cap','Proposed · ~' + estTokens(after) + ' tok'));
+      b2.appendChild(el('div','txt', after));
+      diff.appendChild(b2);
+
+      const btns = el('div','sheetbtns');
+      const no = el('button','iconbtn','Discard');
+      no.onclick = closeSheet;
+      const yes = el('button','iconbtn primary','Accept');
+      yes.onclick = () => {
+        input.value = after; rec.data[key] = after; sync();
+        Hist.commit(AI_TASKS[task].label.toLowerCase() + ' ' + label.toLowerCase());
+        queueSave(); closeSheet();
+        toast('Applied to ' + label + ' — undo with ↶');
+      };
+      btns.appendChild(no); btns.appendChild(yes);
+      sh.appendChild(btns);
+    }).catch(err => {
+      status.textContent = err.message;
+      status.style.color = 'var(--danger)';
+      const btns = el('div','sheetbtns');
+      const ok = el('button','iconbtn','Close'); ok.onclick = closeSheet;
+      btns.appendChild(ok); sh.appendChild(btns);
+    });
+  });
+}
+
+function settingsSheet(){
+  openSheet(sh => {
+    sh.appendChild(el('h3', null, 'Settings'));
+
+    const f1 = el('div','field');
+    f1.appendChild(el('label', null, 'OpenRouter API key'));
+    const k = el('input'); k.type = 'password'; k.placeholder = 'sk-or-v1-…'; k.value = AI.key;
+    k.autocomplete = 'off';
+    f1.appendChild(k);
+    const kn = el('div','tok wrap');
+    kn.textContent = 'Stored on this device only, never in the page source. Use a credit-limited key.';
+    f1.appendChild(kn);
+    sh.appendChild(f1);
+
+    const f2 = el('div','field');
+    f2.appendChild(el('label', null, 'Model'));
+    const m = el('input'); m.type = 'text'; m.value = AI.model;
+    m.placeholder = 'provider/model-id';
+    f2.appendChild(m);
+    const sel = el('select');
+    sel.appendChild(new Option('Load the model list…', ''));
+    sel.onchange = () => { if(sel.value) m.value = sel.value; };
+    f2.appendChild(sel);
+    const mn = el('div','tok wrap');
+    mn.textContent = 'Many models refuse mature content. Pick one that suits your cards.';
+    f2.appendChild(mn);
+    sh.appendChild(f2);
+
+    const load = el('button','iconbtn','Load available models');
+    load.onclick = async () => {
+      load.disabled = true; load.textContent = 'Loading…';
+      try{
+        const ids = await AI.models();
+        sel.innerHTML = '';
+        sel.appendChild(new Option(ids.length + ' models — pick one', ''));
+        for(const id of ids) sel.appendChild(new Option(id, id));
+        load.textContent = 'Loaded ' + ids.length + ' models';
+      }catch(e){ load.textContent = 'Failed: ' + e.message; load.disabled = false; }
+    };
+    sh.appendChild(load);
+
+    const about = el('div','tok wrap');
+    about.style.marginTop = '4px';
+    about.textContent =
+      'Ginger Card Studio — a browser card editor for the Ginger character-card format. ' +
+      'Reads and writes Character Card V2/V3 and preserves Ginger recipe data. ' +
+      'Ginger is © DominaeDev, MIT licensed (github.com/DominaeDev/ginger); this is an ' +
+      'independent implementation of its file format, not affiliated with the original. ' +
+      'Cards never leave your device except when you send a field to OpenRouter yourself.';
+    sh.appendChild(about);
+
+    const btns = el('div','sheetbtns');
+    const cancel = el('button','iconbtn','Cancel'); cancel.onclick = closeSheet;
+    const save = el('button','iconbtn primary','Save');
+    save.onclick = () => {
+      AI.key = k.value.trim(); AI.model = m.value.trim() || AI.model;
+      closeSheet();
+      toast(AI.ready ? 'Settings saved' : 'Saved — AI features stay off until a key is set');
+      if(CURRENT && TAB === 'card') renderCard();
+    };
+    btns.appendChild(cancel); btns.appendChild(save);
+    sh.appendChild(btns);
+  });
+}
+
+/* ============================ wiring ============================ */
+let saveTimer;
+function queueSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    if(!CURRENT) return;
+    try{ await saveCard(CURRENT); }
+    catch(e){ toast('Could not save to the library: ' + e.message, 4200); }
+  }, 500);
+}
+
+$('back').onclick = () => { if(Hist.pending) Hist.commit(Hist.pending); showLibrary(); };
+$('settingsBtn').onclick = settingsSheet;
+$('importBtn').onclick = () => $('fileIn').click();
+$('undoBtn').onclick = () => Hist.go(-1);
+$('redoBtn').onclick = () => Hist.go(1);
+$('newBtn').onclick = async () => {
+  try{
+    const rec = await newCard();
+    showCard(rec);
+    conceptSheet();
+  }catch(e){ toast('Could not create a card: ' + e.message, 4000); }
+};
+for(const b of document.querySelectorAll('.tab')) b.onclick = () => selectTab(b.dataset.tab);
+
+document.addEventListener('keydown', e => {
+  if(!CURRENT || !(e.ctrlKey || e.metaKey)) return;
+  const k = e.key.toLowerCase();
+  if(k === 'z' && !e.shiftKey){ e.preventDefault(); Hist.go(-1); }
+  else if((k === 'z' && e.shiftKey) || k === 'y'){ e.preventDefault(); Hist.go(1); }
+});
+
+$('fileIn').onchange = async e => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = '';
+  if(!files.length) return;
+  let ok = 0, last = null, fails = [];
+  for(const f of files){
+    try{ const rec = await readCardFile(f); await saveCard(rec); last = rec; ok++; }
+    catch(err){ fails.push(f.name + ' — ' + err.message); }
+  }
+  if(ok) toast('Imported ' + ok + ' card' + (ok === 1 ? '' : 's'));
+  if(fails.length) toast(fails[0], 5000);
+  if(ok === 1 && last) showCard(last); else showLibrary();
+};
+
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', async e => {
+  e.preventDefault();
+  const files = Array.from(e.dataTransfer.files || []);
+  if(!files.length) return;
+  let ok = 0, last = null;
+  for(const f of files){ try{ const r = await readCardFile(f); await saveCard(r); last = r; ok++; }catch(err){} }
+  if(ok){ toast('Imported ' + ok + ' card' + (ok === 1 ? '' : 's')); if(ok === 1) showCard(last); else showLibrary(); }
+  else toast('Nothing importable in that drop', 3200);
+});
+
+if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+showLibrary();
+</script>
