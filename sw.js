@@ -2,7 +2,7 @@
    The app shell is tiny and fully static, so: cache it on install, serve it from
    cache, and refresh it in the background. Card data lives in IndexedDB and is
    never touched here. OpenRouter calls always go to the network. */
-const VERSION = 'gcs-v2';
+const VERSION = 'gcs-v3';
 const SHELL = [
   './',
   './index.html',

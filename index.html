@@ -123,6 +123,44 @@ main{padding:16px 12px calc(28px + env(safe-area-inset-bottom));max-width:720px;
 }
 .empty p{margin:0 0 6px}
 
+/* ---------- library view switch ---------- */
+.libbar{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.seg{display:flex;border:1px solid var(--rule);border-radius:7px;overflow:hidden;flex:none}
+.segbtn{
+  background:var(--panel);border:0;color:var(--ink-dim);cursor:pointer;
+  padding:6px 13px;font-size:.76rem;font-weight:600;letter-spacing:.03em;
+}
+.segbtn + .segbtn{border-left:1px solid var(--rule)}
+.segbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.segbtn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+/* ---------- library rows ---------- */
+.cardtile{position:relative}
+.tileopen{
+  background:none;border:0;padding:0;width:100%;cursor:pointer;text-align:left;
+  display:flex;flex-direction:column;color:inherit;
+}
+.morebtn{
+  background:var(--panel);border:1px solid var(--rule);border-radius:6px;color:var(--ink-dim);
+  cursor:pointer;padding:2px 9px 5px;font-size:1rem;line-height:1;flex:none;
+}
+.morebtn.tile{position:absolute;top:7px;right:7px;opacity:.94}
+.morebtn:active{background:var(--sunk)}
+.morebtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.cardlist{display:flex;flex-direction:column;gap:7px}
+.listrow{
+  display:flex;align-items:center;gap:9px;background:var(--panel);
+  border:1px solid var(--rule);border-radius:9px;padding:10px 11px;
+}
+.listmain{
+  flex:1;min-width:0;background:none;border:0;padding:0;text-align:left;
+  cursor:pointer;color:inherit;display:flex;flex-direction:column;gap:3px;
+}
+.listrow .nm{font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.listrow .sub{font-size:.68rem;color:var(--ink-faint);letter-spacing:.04em;text-transform:uppercase}
+.listmain:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
 /* ---------- fields ---------- */
 .field{
   background:var(--panel); border:1px solid var(--rule); border-radius:9px;
@@ -197,6 +235,8 @@ h2.sec{
   margin:22px 0 9px; padding-bottom:7px; border-bottom:1px solid var(--rule);
 }
 h2.sec:first-child{margin-top:0}
+h2.sec.withbtn{display:flex;align-items:center;gap:9px}
+h2.sec.withbtn .minibtn{margin-left:auto}
 
 /* ---------- tappable field preview (long text is edited in a sheet) ---------- */
 .preview{
@@ -702,9 +742,9 @@ const Prompts = {
   save(){ try{ localStorage.setItem(this.KEY, JSON.stringify(this.load())); }catch(e){} },
   _k(f, t){ return f + '|' + t; },
   task(f, t){ const v = this.load()[this._k(f, t)];
-    return (typeof v === 'string' && v.trim()) ? v : AI_TASKS[t].instr; },
+    return (typeof v === 'string' && v.trim()) ? v : defaultInstr(t); },
   setTask(f, t, v){ const d = this.load(), k = this._k(f, t);
-    if(!v || !v.trim() || v.trim() === AI_TASKS[t].instr) delete d[k]; else d[k] = v.trim();
+    if(!v || !v.trim() || v.trim() === defaultInstr(t)) delete d[k]; else d[k] = v.trim();
     this.save(); },
   guidance(f){ return this.load()[this._k(f, 'guidance')] || ''; },
   setGuidance(f, v){ const d = this.load(), k = this._k(f, 'guidance');
@@ -998,6 +1038,89 @@ async function cloneCard(rec){
   return copy;
 }
 
+function defaultInstr(t){
+  if(AI_TASKS[t]) return AI_TASKS[t].instr;
+  if(t === 'generate') return GREETING_TASK.instr;
+  return '';
+}
+function taskLabel(t){
+  if(AI_TASKS[t]) return AI_TASKS[t].label;
+  if(t === 'generate') return GREETING_TASK.label;
+  return t;
+}
+
+/* Generating a greeting is a different shape from the four transform tasks — it
+   writes from nothing rather than reshaping existing text — so it gets its own
+   default instruction, overridable like any other. */
+const GREETING_TASK = {
+  label:'Generate',
+  instr:'Write ONE new opening message for this character, in their voice. ' +
+        'Open a scene: give {{user}} something to react to. Use *asterisks* for action and narration, ' +
+        'plain text for speech. Three to six sentences. ' +
+        'Make it clearly different in mood or setting from any greeting already on the card.'
+};
+const GREETING_KEY = 'alternate_greetings';
+
+function greetingSheet(){
+  const rec = CURRENT;
+  openSheet(sh => {
+    const head = el('div','sheethead');
+    head.appendChild(el('h3', null, 'Generate a greeting'));
+    const pb = el('button','minibtn prompt','Prompt');
+    if(Prompts.customised(GREETING_KEY)) pb.classList.add('on');
+    pb.onclick = () => promptSheet(GREETING_KEY, 'Alternate greetings', false, ['generate']);
+    head.appendChild(pb);
+    sh.appendChild(head);
+
+    const status = el('p','desc');
+    status.innerHTML = '<span class="spin"></span> Asking ' + AI.model + '…';
+    sh.appendChild(status);
+
+    const existing = (rec.data.alternate_greetings || []).filter(Boolean);
+    const shown = [rec.data.first_mes].concat(existing).filter(Boolean);
+    const extra = Prompts.guidance(GREETING_KEY);
+    const user =
+      'Character card, for context:\n---\n' + (aiContext(rec) || '(none)') + '\n---\n\n' +
+      (shown.length
+        ? 'Greetings already on this card — do not repeat their setting or opening beat:\n---\n' +
+          shown.map((g, i) => '(' + (i + 1) + ') ' + g).join('\n\n') + '\n---\n\n'
+        : '') +
+      'Task: ' + Prompts.task(GREETING_KEY, 'generate') +
+      (extra ? '\n\nExtra guidance: ' + extra : '');
+
+    AI.complete(Prompts.system(), user).then(text => {
+      const draft = text.trim();
+      status.textContent = 'Review it. It is added as a new slot only when you accept.';
+      const box = el('div','diffbox new');
+      box.appendChild(el('div','cap','Proposed · ~' + estTokens(draft) + ' tok'));
+      const txt = el('div','txt', draft);
+      box.appendChild(txt);
+      sh.appendChild(box);
+
+      const btns = el('div','sheetbtns');
+      const again = el('button','iconbtn','Try again');
+      again.onclick = () => { closeSheet(); greetingSheet(); };
+      const no = el('button','iconbtn','Discard');
+      no.onclick = closeSheet;
+      const yes = el('button','iconbtn primary','Add as slot ' + (existing.length + 1));
+      yes.onclick = () => {
+        (rec.data.alternate_greetings = rec.data.alternate_greetings || []).push(draft);
+        Hist.commit('generate greeting');
+        queueSave(); closeSheet(); renderCard();
+        toast('Added as slot ' + rec.data.alternate_greetings.length + ' — undo with ↶', 3200);
+      };
+      btns.appendChild(again); btns.appendChild(no); btns.appendChild(yes);
+      sh.appendChild(btns);
+    }).catch(err => {
+      status.textContent = err.message;
+      status.style.color = 'var(--danger)';
+      const btns = el('div','sheetbtns');
+      const ok = el('button','iconbtn','Close'); ok.onclick = closeSheet;
+      btns.appendChild(ok); sh.appendChild(btns);
+    });
+  });
+}
+
 /* ============================ views ============================ */
 let CURRENT = null;      // open card record
 let TAB = 'card';
@@ -1033,6 +1156,76 @@ function selectTab(name){
   if(name === 'out')  renderExport();
 }
 
+const LIBVIEW = {
+  get(){ try{ return localStorage.getItem('gcs-libview') === 'list' ? 'list' : 'grid'; }catch(e){ return 'grid'; } },
+  set(v){ try{ localStorage.setItem('gcs-libview', v); }catch(e){} }
+};
+
+function rowMeta(row){
+  const bits = [];
+  if(row.gingerXml){
+    const n = (row.gingerXml.match(/<Recipe /g) || []).length;
+    bits.push(n ? n + ' recipes' : 'ginger');
+  }
+  const lore = row.data && row.data.character_book && row.data.character_book.entries;
+  if(lore && lore.length) bits.push(lore.length + ' lore');
+  const alts = row.data && row.data.alternate_greetings;
+  if(alts && alts.length) bits.push(alts.length + ' greetings');
+  return bits.join(' · ') || 'card';
+}
+
+function rowPortraitURL(row){
+  if(!row.png) return null;
+  const u8 = row.png instanceof Uint8Array ? row.png : new Uint8Array(row.png);
+  return URL.createObjectURL(new Blob([u8], {type:'image/png'}));
+}
+
+async function openRow(id){
+  const full = await DB.get(id);
+  showCard(await hydrate(full));
+}
+
+/* Per-card actions, reachable from either library view. */
+function cardMenu(row){
+  openSheet(sh => {
+    sh.appendChild(el('h3', null, (row.data && row.data.name) || '(unnamed)'));
+    sh.appendChild(el('p','desc', rowMeta(row)));
+
+    const mk = (label, cls, fn) => {
+      const b = el('button', 'iconbtn' + (cls ? ' ' + cls : ''), label);
+      b.style.width = '100%'; b.style.padding = '13px'; b.style.marginBottom = '8px';
+      b.onclick = fn;
+      return b;
+    };
+
+    sh.appendChild(mk('Open', 'primary', () => { closeSheet(); openRow(row.id); }));
+
+    sh.appendChild(mk('Duplicate', '', async () => {
+      try{
+        const rec = await hydrate(await DB.get(row.id));
+        await cloneCard(rec);
+        closeSheet(); renderLibrary();
+        toast('Duplicated — the copy is in your library');
+      }catch(e){ toast('Could not duplicate: ' + e.message, 4000); }
+    }));
+
+    const del = mk('Delete', '', async () => {
+      const name = (row.data && row.data.name) || 'this card';
+      if(!confirm('Delete "' + name + '"? Export it first if you want to keep it.')) return;
+      await DB.del(row.id);
+      closeSheet(); renderLibrary();
+      toast('Deleted "' + name + '"');
+    });
+    del.style.color = 'var(--danger)';
+    del.style.borderColor = 'var(--danger)';
+    sh.appendChild(del);
+
+    const cancel = mk('Cancel', '', closeSheet);
+    cancel.style.marginBottom = '0';
+    sh.appendChild(cancel);
+  });
+}
+
 async function renderLibrary(){
   const host = $('v-library'); host.innerHTML = '';
   let rows = [];
@@ -1043,31 +1236,64 @@ async function renderLibrary(){
   if(!rows.length){
     const e0 = el('div','empty');
     e0.appendChild(el('p', null, 'No cards yet.'));
-    e0.appendChild(el('p', null, 'Tap Import to add a character card PNG or JSON.'));
+    e0.appendChild(el('p', null, 'Tap Import to add a character card PNG or JSON, or + New to build one from a concept.'));
     host.appendChild(e0);
     return;
   }
+
+  // view switch
+  const bar = el('div','libbar');
+  bar.appendChild(el('span','tok', rows.length + (rows.length === 1 ? ' card' : ' cards')));
+  bar.appendChild(el('span','spacer'));
+  const seg = el('div','seg');
+  const view = LIBVIEW.get();
+  for(const [id, label] of [['grid','Cards'], ['list','List']]){
+    const b = el('button','segbtn', label);
+    b.setAttribute('aria-pressed', String(view === id));
+    b.onclick = () => { LIBVIEW.set(id); renderLibrary(); };
+    seg.appendChild(b);
+  }
+  bar.appendChild(seg);
+  host.appendChild(bar);
+
+  if(view === 'list'){
+    const list = el('div','cardlist');
+    for(const row of rows){
+      const it = el('div','listrow');
+      const main = el('button','listmain');
+      main.appendChild(el('div','nm', (row.data && row.data.name) || '(unnamed)'));
+      main.appendChild(el('div','sub', rowMeta(row)));
+      main.onclick = () => openRow(row.id);
+      it.appendChild(main);
+      const more = el('button','morebtn','⋯');
+      more.setAttribute('aria-label','Actions for ' + ((row.data && row.data.name) || 'card'));
+      more.onclick = () => cardMenu(row);
+      it.appendChild(more);
+      list.appendChild(it);
+    }
+    host.appendChild(list);
+    return;
+  }
+
   const grid = el('div','grid');
   for(const row of rows){
-    const tile = el('button','cardtile');
+    const tile = el('div','cardtile');
+    const open = el('button','tileopen');
     const img = el('img'); img.alt = '';
-    if(row.png){
-      const u8 = row.png instanceof Uint8Array ? row.png : new Uint8Array(row.png);
-      img.src = URL.createObjectURL(new Blob([u8], {type:'image/png'}));
-    }
-    tile.appendChild(img);
+    const src = rowPortraitURL(row);
+    if(src) img.src = src;
+    open.appendChild(img);
     const meta = el('div','meta');
-    meta.appendChild(el('div','nm', row.data && row.data.name ? row.data.name : '(unnamed)'));
-    const bits = [];
-    if(row.gingerXml){
-      const n = (row.gingerXml.match(/<Recipe /g) || []).length;
-      bits.push(n ? n + ' recipes' : 'ginger');
-    }
-    const lore = row.data && row.data.character_book && row.data.character_book.entries;
-    if(lore && lore.length) bits.push(lore.length + ' lore');
-    meta.appendChild(el('div','sub', bits.join(' · ') || 'card'));
-    tile.appendChild(meta);
-    tile.onclick = async () => { const full = await DB.get(row.id); showCard(await hydrate(full)); };
+    meta.appendChild(el('div','nm', (row.data && row.data.name) || '(unnamed)'));
+    meta.appendChild(el('div','sub', rowMeta(row)));
+    open.appendChild(meta);
+    open.onclick = () => openRow(row.id);
+    tile.appendChild(open);
+
+    const more = el('button','morebtn tile','⋯');
+    more.setAttribute('aria-label','Actions for ' + ((row.data && row.data.name) || 'card'));
+    more.onclick = e => { e.stopPropagation(); cardMenu(row); };
+    tile.appendChild(more);
     grid.appendChild(tile);
   }
   host.appendChild(grid);
@@ -1270,7 +1496,7 @@ function namesSheet(key, label, backToEditor){
 }
 
 /* ---------------------------------------------------------------- prompt sheet */
-function promptSheet(key, label, backToEditor){
+function promptSheet(key, label, backToEditor, taskList){
   const back = () => { if(backToEditor) editorSheet(key, label); else closeSheet(); };
   openSheet(sh => {
     sh.classList.add('tall');
@@ -1280,6 +1506,7 @@ function promptSheet(key, label, backToEditor){
       'Blank a box to fall back to the default.'));
 
     const boxes = {};
+    const TASKS = taskList || Object.keys(AI_TASKS);
 
     const gf = el('div','field');
     gf.appendChild(el('label', null, 'Extra guidance for this field'));
@@ -1290,19 +1517,19 @@ function promptSheet(key, label, backToEditor){
     gf.appendChild(gta);
     sh.appendChild(gf);
 
-    for(const t of Object.keys(AI_TASKS)){
+    for(const t of TASKS){
       const f = el('div','field');
       const h = el('div','head');
-      h.appendChild(el('label', null, AI_TASKS[t].label));
-      const isCustom = Prompts.task(key, t) !== AI_TASKS[t].instr;
+      h.appendChild(el('label', null, taskLabel(t)));
+      const isCustom = Prompts.task(key, t) !== defaultInstr(t);
       const badge = el('span','tok', isCustom ? 'custom' : 'default');
       h.appendChild(badge);
       f.appendChild(h);
       const ta = el('textarea');
       ta.rows = 3;
       ta.value = Prompts.task(key, t);
-      ta.placeholder = AI_TASKS[t].instr;
-      ta.oninput = () => { badge.textContent = ta.value.trim() === AI_TASKS[t].instr ? 'default' : 'custom'; };
+      ta.placeholder = defaultInstr(t);
+      ta.oninput = () => { badge.textContent = ta.value.trim() === defaultInstr(t) ? 'default' : 'custom'; };
       boxes[t] = ta;
       f.appendChild(ta);
       sh.appendChild(f);
@@ -1324,7 +1551,7 @@ function promptSheet(key, label, backToEditor){
     rst.onclick = () => {
       Prompts.resetField(key);
       gta.value = '';
-      for(const t of Object.keys(AI_TASKS)) boxes[t].value = AI_TASKS[t].instr;
+      for(const t of TASKS) boxes[t].value = defaultInstr(t);
       sta.value = BASE_SYSTEM;
       Prompts.setSystem('');
       toast('Reset to defaults');
@@ -1333,7 +1560,7 @@ function promptSheet(key, label, backToEditor){
     const save = el('button','iconbtn primary','Save');
     save.onclick = () => {
       Prompts.setGuidance(key, gta.value);
-      for(const t of Object.keys(AI_TASKS)) Prompts.setTask(key, t, boxes[t].value);
+      for(const t of TASKS) Prompts.setTask(key, t, boxes[t].value);
       Prompts.setSystem(sta.value);
       toast('Prompt saved for ' + label);
       back();
@@ -1410,7 +1637,14 @@ function renderCard(){
 
   // alternate greetings
   const greets = (d.alternate_greetings = d.alternate_greetings || []);
-  host.appendChild(el('h2','sec','Alternate greetings'));
+  const gh = el('h2','sec','Alternate greetings');
+  gh.classList.add('withbtn');
+  const ghp = el('button','minibtn prompt','Prompt');
+  ghp.title = 'Edit the instruction used to generate greetings';
+  if(Prompts.customised(GREETING_KEY)) ghp.classList.add('on');
+  ghp.onclick = () => promptSheet(GREETING_KEY, 'Alternate greetings', false, ['generate']);
+  gh.appendChild(ghp);
+  host.appendChild(gh);
   if(greets.length){
     const h = el('div','tok wrap');
     h.style.margin = '-4px 0 8px';
@@ -1495,7 +1729,14 @@ function renderCard(){
   if(greets.length > 1) makeDraggable(list, '.greet', '.grip', order => commitOrder(order, 'reorder greetings'));
   const addG = el('button','iconbtn','+ Add greeting');
   addG.onclick = () => { (d.alternate_greetings = d.alternate_greetings || []).push(''); Hist.commit('add greeting'); queueSave(); renderCard(); };
-  host.appendChild(addG);
+  const gRow = el('div','fieldbtns');
+  gRow.appendChild(addG);
+  const genG = el('button','iconbtn primary','✦  Generate a greeting');
+  genG.disabled = !AI.ready;
+  genG.title = AI.ready ? 'Write a new greeting with the model' : 'Add an OpenRouter key in Settings';
+  genG.onclick = greetingSheet;
+  gRow.appendChild(genG);
+  host.appendChild(gRow);
 }
 
 function pickPortrait(imgEl){
