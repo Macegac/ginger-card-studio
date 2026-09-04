@@ -1299,9 +1299,115 @@ async function renderLibrary(){
   host.appendChild(grid);
 }
 
+/* A text target the editing tools can act on. Most are a named card field, but a
+   greeting is an array slot — same tools, different address. */
+function fieldRef(key){
+  const m = /^alternate_greetings\[(\d+)\]$/.exec(key);
+  if(m){
+    const i = +m[1];
+    return {
+      key, index: i, isGreeting: true,
+      promptKey: 'alternate_greetings',
+      get(){ const a = CURRENT.data.alternate_greetings; return (a && a[i]) || ''; },
+      set(v){ const a = (CURRENT.data.alternate_greetings = CURRENT.data.alternate_greetings || []); a[i] = v; },
+      original(){ const o = CURRENT.original && CURRENT.original.alternate_greetings;
+        return o && typeof o[i] === 'string' ? o[i] : undefined; }
+    };
+  }
+  return {
+    key, isGreeting: false,
+    promptKey: key,
+    get(){ return CURRENT.data[key] || ''; },
+    set(v){ CURRENT.data[key] = v; },
+    original(){ const o = CURRENT.original; return o && typeof o[key] === 'string' ? o[key] : undefined; }
+  };
+}
+
+/* Refresh one target's row without rebuilding the tab (which would close an open sheet). */
+function syncField(key){
+  const f = fieldBox.sync[key];
+  if(f){ f(); return; }
+  if(/^alternate_greetings\[/.test(key) && TAB === 'card' && CURRENT) renderCard();
+}
+
+/* The shared action row: the same tools wherever text is edited. */
+function textActions(key, label, sync, opts){
+  opts = opts || {};
+  const rec = CURRENT, ref = fieldRef(key);
+  const bar = el('div','fieldbtns');
+  const state = {};
+
+  for(const t of Object.keys(AI_TASKS)){
+    const b = el('button','aibtn', AI_TASKS[t].label);
+    b.disabled = !AI.ready;
+    b.title = AI.ready ? '' : 'Add an OpenRouter key in Settings';
+    b.onclick = () => { if(Hist.pending) Hist.commit(Hist.pending); aiSheet(key, label, t, opts.fromEditor); };
+    bar.appendChild(b);
+  }
+
+  const namesBtn = el('button','minibtn','Names');
+  namesBtn.title = 'Replace the character name with {{char}}';
+  namesBtn.onclick = () => { if(Hist.pending) Hist.commit(Hist.pending); namesSheet(key, label, opts.fromEditor); };
+  bar.appendChild(namesBtn);
+  state.namesBtn = namesBtn;
+
+  bar.appendChild(el('span','spacer'));
+
+  if(opts.prompt){
+    const pb = el('button','minibtn prompt','Prompt');
+    if(Prompts.customised(ref.promptKey)) pb.classList.add('on');
+    pb.onclick = () => promptSheet(ref.promptKey, label, opts.fromEditor);
+    bar.appendChild(pb);
+  }
+
+  const orig = ref.original();
+  if(typeof orig === 'string' && !opts.noRevert){
+    const rb = el('button','minibtn revert','Revert');
+    rb.title = 'Put back the value this card was imported with';
+    rb.onclick = () => {
+      ref.set(orig); Hist.commit('revert ' + label.toLowerCase()); queueSave(); sync(); syncField(key);
+      toast(orig ? 'Reverted to the imported value' : 'Reverted — this was empty on the card');
+    };
+    bar.appendChild(rb);
+    state.revertBtn = rb;
+    state.orig = orig;
+  }
+
+  if(!opts.noClear){
+    const cb = el('button','minibtn','Clear');
+    cb.onclick = () => {
+      ref.set(''); Hist.commit('clear ' + label.toLowerCase()); queueSave(); sync(); syncField(key);
+      toast('Cleared — undo with ↶');
+    };
+    bar.appendChild(cb);
+    state.clearBtn = cb;
+  }
+
+  bar.refresh = () => {
+    const v = ref.get();
+    if(state.clearBtn)  state.clearBtn.disabled  = !v;
+    if(state.revertBtn) state.revertBtn.disabled = (v === state.orig);
+    if(state.namesBtn)  state.namesBtn.disabled  = !AI.hasNames(rec) || fixNames(v, rec) === v;
+  };
+  bar.refresh();
+  return bar;
+}
+
+/* A tappable preview that opens the editing sheet. */
+function textPreview(key, label, sync){
+  const p = el('div','preview');
+  p.tabIndex = 0;
+  p.setAttribute('role','button');
+  p.setAttribute('aria-label','Edit ' + label);
+  const open = () => editorSheet(key, label);
+  p.onclick = open;
+  p.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } };
+  return p;
+}
+
 function fieldBox(labelText, key, multiline, opts){
   opts = opts || {};
-  const rec = CURRENT, d = rec.data;
+  const rec = CURRENT, ref = fieldRef(key);
   const box = el('div','field');
 
   const head = el('div','head');
@@ -1311,100 +1417,52 @@ function fieldBox(labelText, key, multiline, opts){
   if(multiline && opts.ai !== false){
     const pb = el('button','minibtn prompt','Prompt');
     pb.title = 'Edit the instruction sent to the model for this field';
-    if(Prompts.customised(key)) pb.classList.add('on');
-    pb.onclick = () => promptSheet(key, labelText);
+    if(Prompts.customised(ref.promptKey)) pb.classList.add('on');
+    pb.onclick = () => promptSheet(ref.promptKey, labelText);
     head.appendChild(pb);
   }
   box.appendChild(head);
 
-  const orig = rec.original ? rec.original[key] : undefined;
-  const hasOrig = typeof orig === 'string';
-  let clearBtn = null, revertBtn = null, namesBtn = null, preview = null, input = null;
-
-  const current = () => d[key] || '';
+  let preview = null, input = null, bar = null;
 
   const sync = () => {
-    const v = current();
+    const v = ref.get();
     tok.textContent = multiline ? '~' + estTokens(v) + ' tok' : '';
-    if(clearBtn)  clearBtn.disabled  = !v;
-    if(revertBtn) revertBtn.disabled = (v === orig);
-    if(namesBtn)  namesBtn.disabled  = !AI.hasNames(rec) || fixNames(v, rec) === v;
     if(preview){
       preview.textContent = v || 'Empty — tap to write';
       preview.classList.toggle('placeholder', !v);
     }
     if(input && input.value !== v) input.value = v;
+    if(bar && bar.refresh) bar.refresh();
   };
-
-  const setValue = (v, label) => { d[key] = v; sync(); Hist.commit(label); queueSave(); };
   fieldBox.sync[key] = sync;
 
   if(multiline){
     /* Long text is edited in a full-height sheet. The card shows a preview only —
        a four-line scrolling box is a bad place to write a character description. */
-    preview = el('div','preview');
-    preview.tabIndex = 0;
-    preview.setAttribute('role','button');
-    preview.setAttribute('aria-label','Edit ' + labelText);
-    const open = () => editorSheet(key, labelText);
-    preview.onclick = open;
-    preview.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } };
+    preview = textPreview(key, labelText, sync);
     box.appendChild(preview);
+    bar = textActions(key, labelText, sync, {});
+    box.appendChild(bar);
   } else {
     input = el('input');
     input.type = 'text';
-    input.value = esc(current());
+    input.value = esc(ref.get());
     input.spellcheck = true;
-    input.oninput = () => { d[key] = input.value; sync(); Hist.coalesce('edit ' + labelText.toLowerCase()); queueSave(); };
+    input.oninput = () => { ref.set(input.value); sync(); Hist.coalesce('edit ' + labelText.toLowerCase()); queueSave(); };
     input.onblur  = () => { if(Hist.pending) Hist.commit(Hist.pending); };
     box.appendChild(input);
   }
 
-  const bar = el('div','fieldbtns');
-  if(multiline && opts.ai !== false){
-    for(const t of Object.keys(AI_TASKS)){
-      const b = el('button','aibtn', AI_TASKS[t].label);
-      b.disabled = !AI.ready;
-      b.title = AI.ready ? '' : 'Add an OpenRouter key in Settings';
-      b.onclick = () => aiSheet(key, labelText, t);
-      bar.appendChild(b);
-    }
-  }
-  if(multiline){
-    namesBtn = el('button','minibtn','Names');
-    namesBtn.title = 'Replace the character name with {{char}}';
-    namesBtn.onclick = () => namesSheet(key, labelText);
-    bar.appendChild(namesBtn);
-  }
-  bar.appendChild(el('span','spacer'));
-
-  if(hasOrig){
-    revertBtn = el('button','minibtn revert','Revert');
-    revertBtn.title = 'Put back what the imported card had in this field';
-    revertBtn.onclick = () => { setValue(orig, 'revert ' + labelText.toLowerCase());
-      toast(orig ? 'Reverted to the imported value' : 'Reverted — the card had this field empty'); };
-    bar.appendChild(revertBtn);
-  }
-  clearBtn = el('button','minibtn','Clear');
-  clearBtn.onclick = () => { setValue('', 'clear ' + labelText.toLowerCase()); toast('Cleared — undo with ↶'); };
-  bar.appendChild(clearBtn);
-
-  box.appendChild(bar);
   sync();
   return box;
 }
 fieldBox.sync = {};
 
-/* Refresh one field's card row without rebuilding the whole tab (which would
-   close whatever sheet is open). */
-function syncField(key){
-  const f = fieldBox.sync[key];
-  if(f) f();
-}
-
 /* ---------------------------------------------------------------- editor sheet */
 function editorSheet(key, label){
   const rec = CURRENT;
+  const ref = fieldRef(key);
   openSheet(sh => {
     sh.classList.add('tall');
     const bar = el('div','sheethead');
@@ -1414,12 +1472,12 @@ function editorSheet(key, label){
     sh.appendChild(bar);
 
     const ta = el('textarea','editor');
-    ta.value = rec.data[key] || '';
+    ta.value = ref.get();
     ta.spellcheck = true;
     const count = () => { t.textContent = '~' + estTokens(ta.value) + ' tok'; };
     count();
     ta.oninput = () => {
-      rec.data[key] = ta.value; count();
+      ref.set(ta.value); count();
       Hist.coalesce('edit ' + label.toLowerCase());
       queueSave(); syncField(key);
     };
@@ -1440,8 +1498,8 @@ function editorSheet(key, label){
     acts.appendChild(nb);
     acts.appendChild(el('span','spacer'));
     const pb = el('button','minibtn prompt','Prompt');
-    if(Prompts.customised(key)) pb.classList.add('on');
-    pb.onclick = () => promptSheet(key, label, true);
+    if(Prompts.customised(fieldRef(key).promptKey)) pb.classList.add('on');
+    pb.onclick = () => promptSheet(fieldRef(key).promptKey, label, true);
     acts.appendChild(pb);
     sh.appendChild(acts);
 
@@ -1458,7 +1516,8 @@ function editorSheet(key, label){
 /* ---------------------------------------------------------------- name bleed sheet */
 function namesSheet(key, label, backToEditor){
   const rec = CURRENT;
-  const before = rec.data[key] || '';
+  const ref = fieldRef(key);
+  const before = ref.get();
   const after = fixNames(before, rec);
   const back = () => { if(backToEditor) editorSheet(key, label); else closeSheet(); };
 
@@ -1485,7 +1544,7 @@ function namesSheet(key, label, backToEditor){
     no.onclick = back;
     const yes = el('button','iconbtn primary','Apply');
     yes.onclick = () => {
-      rec.data[key] = after;
+      ref.set(after);
       Hist.commit('fix names in ' + label.toLowerCase());
       queueSave(); syncField(key); back();
       toast('Names replaced — undo with ↶');
@@ -1681,6 +1740,7 @@ function renderCard(){
 
   const list = el('div','greetlist');
   greets.forEach((g, i) => {
+    const gkey = 'alternate_greetings[' + i + ']';
     const it = el('div','listitem greet');
     it.dataset.gi = String(i);
 
@@ -1694,6 +1754,8 @@ function renderCard(){
       bar.appendChild(grip);
     }
     bar.appendChild(el('span','idx','Slot ' + (i + 1) + '/' + greets.length));
+    const gtok = el('span','tok');
+    bar.appendChild(gtok);
 
     const def = el('button','minibtn promote','Default');
     def.title = 'Make this the card’s first message';
@@ -1712,17 +1774,26 @@ function renderCard(){
       bar.appendChild(up); bar.appendChild(down);
     }
 
-    const del = el('button','del','Remove');
-    del.onclick = () => { greets.splice(i, 1); Hist.commit('remove greeting'); queueSave(); renderCard(); };
-    bar.appendChild(del);
     it.appendChild(bar);
 
-    const ta = el('textarea');
-    ta.value = esc(g);
-    ta.spellcheck = true;
-    ta.oninput = () => { greets[i] = ta.value; Hist.coalesce('edit greeting'); queueSave(); };
-    ta.onblur  = () => { if(Hist.pending) Hist.commit(Hist.pending); };
-    it.appendChild(ta);
+    const label = 'Greeting ' + (i + 1);
+    let acts = null;
+    const sync = () => {
+      const v = fieldRef(gkey).get();
+      gtok.textContent = '~' + estTokens(v) + ' tok';
+      prev.textContent = v || 'Empty — tap to write';
+      prev.classList.toggle('placeholder', !v);
+      if(acts && acts.refresh) acts.refresh();
+    };
+    const prev = textPreview(gkey, label, sync);
+    it.appendChild(prev);
+    acts = textActions(gkey, label, sync, {noRevert:true});
+    const del = el('button','del','Remove');
+    del.onclick = () => { greets.splice(i, 1); Hist.commit('remove greeting'); queueSave(); renderCard(); };
+    acts.appendChild(del);
+    it.appendChild(acts);
+    sync();
+
     list.appendChild(it);
   });
   host.appendChild(list);
@@ -2018,7 +2089,8 @@ $('scrim').onclick = e => { if(e.target === $('scrim')) closeSheet(); };
 
 function aiSheet(key, label, task, backToEditor){
   const rec = CURRENT;
-  const before = rec.data[key] || '';
+  const ref = fieldRef(key);
+  const before = ref.get();
   const back = () => { if(backToEditor) editorSheet(key, label); else closeSheet(); };
   if(!before.trim()){ toast('Nothing to work with — write something first.'); return; }
 
@@ -2026,9 +2098,9 @@ function aiSheet(key, label, task, backToEditor){
     const head = el('div','sheethead');
     head.appendChild(el('h3', null, AI_TASKS[task].label + ' · ' + label));
     const pb = el('button','minibtn prompt','Prompt');
-    if(Prompts.customised(key)) pb.classList.add('on');
+    if(Prompts.customised(fieldRef(key).promptKey)) pb.classList.add('on');
     pb.title = 'Edit the instruction being sent';
-    pb.onclick = () => promptSheet(key, label, backToEditor);
+    pb.onclick = () => promptSheet(fieldRef(key).promptKey, label, backToEditor);
     head.appendChild(pb);
     sh.appendChild(head);
 
@@ -2055,7 +2127,7 @@ function aiSheet(key, label, task, backToEditor){
       no.onclick = back;
       const yes = el('button','iconbtn primary','Accept');
       yes.onclick = () => {
-        rec.data[key] = after;
+        ref.set(after);
         Hist.commit(AI_TASKS[task].label.toLowerCase() + ' ' + label.toLowerCase());
         queueSave(); syncField(key); back();
         toast('Applied to ' + label + ' — undo with ↶');
